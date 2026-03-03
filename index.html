@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PlaySentinel — Real-Time Safety Intelligence for Multiplayer Games</title>
+  <meta name="description" content="PlaySentinel detects grooming risk and high-risk conversation patterns in game chats using session-based risk scoring and explainable stages." />
+
+  <link rel="icon" href="./favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="./playsentinel-logo.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="./playsentinel-icon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./playsentinel-icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+
+  <link rel="manifest" href="./site.webmanifest">
+  <meta name="theme-color" content="#0B1220" />
+
+  <style>
+    :root{
+      --bg:#0B1220;
+      --panel:rgba(255,255,255,.04);
+      --panel2:rgba(255,255,255,.02);
+      --text:#E5E7EB;
+      --muted:#A7B0C0;
+      --blue:#3B82F6;
+      --blue2:#60A5FA;
+      --green:#22C55E;
+      --red:#EF4444;
+      --border:rgba(255,255,255,.10);
+      --shadow: 0 16px 40px rgba(0,0,0,.45);
+      --r:18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(900px 500px at 15% -10%, rgba(59,130,246,.25), transparent 60%),
+        radial-gradient(900px 500px at 95% 10%, rgba(34,197,94,.16), transparent 60%),
+        var(--bg);
+      line-height:1.5;
+    }
+    a{color:inherit}
+    .wrap{max-width:1100px;margin:0 auto;padding:26px}
+    .nav{
+      display:flex;align-items:center;justify-content:space-between;
+      gap:14px;padding:10px 0 18px 0;
+    }
+
+    .brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+    .brand img{
+      width:42px;height:42px;
+      filter: drop-shadow(0 0 14px rgba(59,130,246,.45));
+    }
+    .brand .name{
+      text-transform:uppercase;
+      letter-spacing:.22em;
+      font-weight:800;
+      font-size:14px;
+      line-height:1.1;
+    }
+    .brand .name b{font-weight:900}
+    .brand .tag{margin-top:6px;color:var(--muted);font-size:12.5px}
+
+    .navlinks{display:flex;gap:16px;align-items:center;color:var(--muted);font-size:14px;flex-wrap:wrap;justify-content:flex-end}
+    .navlinks a{text-decoration:none;opacity:.9;padding:6px 8px;border-radius:10px}
+    .navlinks a:hover{opacity:1;color:var(--text);background:rgba(255,255,255,.04)}
+
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      padding:10px 14px;border-radius:12px;border:1px solid var(--border);
+      text-decoration:none;font-weight:700;
+      background:rgba(255,255,255,.03);
+      transition:transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+      gap:8px;
+    }
+    .btn:hover{
+      transform:translateY(-1px);
+      background:rgba(255,255,255,.06);
+      border-color:rgba(255,255,255,.16);
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+    .btn.primary{
+      color:#06101f;
+      border-color:rgba(59,130,246,.45);
+      background:linear-gradient(135deg, rgba(59,130,246,1), rgba(96,165,250,.75));
+      box-shadow: 0 12px 35px rgba(59,130,246,.25);
+    }
+    .btn.green{
+      color:#05130b;
+      border-color:rgba(34,197,94,.35);
+      background:linear-gradient(135deg, rgba(34,197,94,1), rgba(34,197,94,.6));
+      box-shadow: 0 12px 35px rgba(34,197,94,.18);
+    }
+
+    .hero{
+      display:grid;grid-template-columns: 1.1fr .9fr;gap:16px;
+      margin:14px 0 22px 0;
+      align-items:stretch;
+    }
+    @media(max-width:920px){.hero{grid-template-columns:1fr}}
+
+    .card{
+      background:linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--border);
+      border-radius:var(--r);
+      padding:20px;
+      box-shadow:var(--shadow);
+    }
+
+    .heroLogo{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-bottom:14px;
+      opacity:.95;
+    }
+    .heroLogo img{
+      width:100%;
+      max-width:520px;
+      height:auto;
+      filter: drop-shadow(0 0 20px rgba(59,130,246,.22));
+    }
+
+    h1{margin:0 0 10px 0;font-size:44px;line-height:1.06}
+    @media(max-width:520px){h1{font-size:36px}}
+    .sub{color:var(--muted);max-width:62ch}
+    .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .pills{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .pill{
+      font-size:12px;color:var(--muted);
+      padding:6px 10px;border:1px solid var(--border);
+      border-radius:999px;background:rgba(255,255,255,.02)
+    }
+
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+    @media(max-width:920px){.grid3{grid-template-columns:1fr}}
+
+    .mini{
+      background:rgba(255,255,255,.02);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+    }
+    .mini b{display:block;margin-bottom:6px}
+    .section{margin:22px 0}
+    .section h2{margin:0 0 10px 0;font-size:24px}
+    .muted{color:var(--muted)}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:920px){.split{grid-template-columns:1fr}}
+    .code{
+      background:#071022;
+      border:1px solid rgba(59,130,246,.2);
+      border-radius:16px;
+      padding:14px;
+      font-family:var(--mono);
+      font-size:12.8px;
+      overflow:auto;
+      white-space:pre;
+    }
+    .pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media(max-width:920px){.pricing{grid-template-columns:1fr}}
+    .price h3{margin:0 0 6px 0}
+    .price .pnum{font-size:34px;font-weight:900;margin:6px 0}
+    .price ul{margin:10px 0 0 18px;color:var(--muted)}
+    .tag{
+      display:inline-block;
+      font-size:12px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:rgba(59,130,246,.20);
+      border:1px solid rgba(59,130,246,.35);
+      color:var(--text);
+      margin-bottom:10px;
+    }
+    .faq details{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px 14px;
+      background:rgba(255,255,255,.02);
+      margin-top:10px;
+    }
+    .faq summary{cursor:pointer;font-weight:800}
+    .footer{
+      margin-top:22px;
+      padding:18px 0 10px 0;
+      border-top:1px solid var(--border);
+      color:var(--muted);
+      font-size:13px;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .footer a{color:var(--muted);text-decoration:none}
+    .footer a:hover{color:var(--text)}
+    .contact{
+      display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;
+    }
+    .note{font-size:12px;color:var(--muted)}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="nav">
+      <!-- ✅ Header nutzt ICON (nicht das große Logo) -->
+      <a class="brand" href="#top">
+        <img src="./playsentinel-logo.svg" alt="PlaySentinel Icon">
+        <div>
+          <div class="name">PLAY <b>SENTINEL</b></div>
+          <div class="tag">Real-Time Safety Intelligence for Multiplayer Games</div>
+        </div>
+      </a>
+
+      <div class="navlinks">
+        <a href="#features">Features</a>
+        <a href="#demo">Demo</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#api">API</a>
+        <a href="#faq">FAQ</a>
+        <a href="#impressum">Legal Notice</a>
+        <a href="#datenschutz">Privacy Policy</a>
+      </div>
+    </div>
+
+    <div id="top" class="hero">
+      <div class="card">
+        <!-- ✅ Big logo in hero (optional) -->
+        <div class="heroLogo">
+          <img src="./playsentinel-logo.svg" alt="PlaySentinel Logo">
+        </div>
+
+        <h1>Detect grooming risk in game chats — in real time.</h1>
+        <div class="sub">
+          PlaySentinel is a session-aware safety layer that scores messages, tracks cumulative conversation risk,
+          and outputs explainable stages: <b>Trust → Info → Isolation → Grooming</b>.
+        </div>
+
+        <div class="cta">
+          <a class="btn primary" href="#demo">▶ Try the demo</a>
+          <a class="btn" href="http://localhost:8000/docs" target="_blank" rel="noreferrer">Open API docs</a>
+          <a class="btn" href="#api">Copy API example</a>
+        </div>
+
+        <div class="pills">
+          <div class="pill">✅ English + German</div>
+          <div class="pill">✅ Session context (user → target)</div>
+          <div class="pill">✅ Explainable output (matched patterns)</div>
+          <div class="pill">✅ API key + rate limiting</div>
+        </div>
+
+        <div class="grid3">
+          <div class="mini">
+            <b>API-first</b>
+            <div class="muted">Drop into any backend, use responses for block/shadowban/alerts.</div>
+          </div>
+          <div class="mini">
+            <b>Stages, not just keywords</b>
+            <div class="muted">Detects conversation progression over time (session-based).</div>
+          </div>
+          <div class="mini">
+            <b>Privacy options</b>
+            <div class="muted">Log incidents with optional hashing (no plaintext storage).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="tag">What you get</div>
+        <div class="mini" style="margin-top:10px">
+          <b>Risk score + risk level</b>
+          <div class="muted">score, conversation_risk, SAFE/LOW/MEDIUM/HIGH/CRITICAL</div>
+        </div>
+        <div class="mini" style="margin-top:10px">
+          <b>Categories + matched patterns</b>
+          <div class="muted">plattformwechsel, geheimhaltung, vertrauensaufbau…</div>
+        </div>
+        <div class="mini" style="margin-top:10px">
+          <b>Stage detection</b>
+          <div class="muted">TRUST_BUILDING → INFO_GATHERING → ISOLATION → GROOMING</div>
+        </div>
+        <div class="note" style="margin-top:12px">
+          MVP note: For production, add Redis/DB sessions, monitoring, and richer datasets.
+        </div>
+      </div>
+    </div>
+
+    <div id="features" class="section">
+      <h2>Features</h2>
+      <div class="split">
+        <div class="card">
+          <h3 style="margin:0 0 8px 0">Session-based risk scoring</h3>
+          <div class="muted">
+            Many harmful conversations escalate gradually. PlaySentinel keeps a rolling session context per (user_id → target_id)
+            and computes cumulative risk.
+          </div>
+          <div style="height:10px"></div>
+          <div class="mini">
+            <b>Explainability</b>
+            <div class="muted">Returns categories + matched patterns to support moderator decisions.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin:0 0 8px 0">Normalization</h3>
+          <div class="muted">
+            Detects common obfuscations and aliases like <b>dc/discord</b>, <b>sc/snap/sn4p</b>, etc.
+          </div>
+          <div style="height:10px"></div>
+          <div class="mini">
+            <b>Rate-limited API</b>
+            <div class="muted">Simple API key auth + in-memory throttling for MVP deployments.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="demo" class="section split">
+      <div class="card">
+        <h2>Live demo</h2>
+        <div class="muted">
+          Open the demo UI and send messages. You’ll see score, risk_level, stage, categories, and matched patterns.
+        </div>
+        <div class="cta" style="margin-top:12px">
+          <a class="btn green" href="./demo.html">Open demo UI</a>
+          <a class="btn" href="http://localhost:8000/v1/health" target="_blank" rel="noreferrer">API health</a>
+        </div>
+        <div class="note" style="margin-top:12px">
+          Local setup: API on <b>8000</b> + demo site on <b>5500</b>.
+        </div>
+      </div>
+      <div class="card">
+        <h2>Sample escalation</h2>
+        <div class="muted">A conversation that should escalate stage & risk:</div>
+        <div style="height:10px"></div>
+        <div class="code">You’re very mature for your age.
+How old are you?
+Do you have discord or snap?
+Don’t tell your parents — keep it secret.</div>
+      </div>
+    </div>
+
+    <div id="pricing" class="section">
+      <h2>Pricing (starter)</h2>
+      <div class="muted">Use this to start conversations. Adjust after you speak to real users.</div>
+      <div style="height:10px"></div>
+      <div class="pricing">
+        <div class="card price">
+          <h3>Indie</h3>
+          <div class="pnum">€29<span style="font-size:14px;font-weight:800;color:var(--muted)">/mo</span></div>
+          <div class="muted">Prototypes & small games</div>
+          <ul>
+            <li>API access</li>
+            <li>Basic limits</li>
+            <li>Email support</li>
+          </ul>
+        </div>
+
+        <div class="card price" style="border-color:rgba(59,130,246,.25)">
+          <div class="tag">Most popular</div>
+          <h3>Pro</h3>
+          <div class="pnum">€99<span style="font-size:14px;font-weight:800;color:var(--muted)">/mo</span></div>
+          <div class="muted">Live games & communities</div>
+          <ul>
+            <li>Higher limits</li>
+            <li>Session exports</li>
+            <li>Priority support</li>
+          </ul>
+        </div>
+
+        <div class="card price">
+          <h3>Enterprise</h3>
+          <div class="pnum">Let’s talk</div>
+          <div class="muted">On-prem / SLA / custom workflows</div>
+          <ul>
+            <li>Custom contract</li>
+            <li>Security review</li>
+            <li>Dedicated support</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note" style="margin-top:10px">
+        These are placeholder prices — your first pilots determine real pricing.
+      </div>
+    </div>
+
+    <div id="api" class="section split">
+      <div class="card">
+        <h2>API example</h2>
+        <div class="muted">POST /v1/analyze</div>
+        <div style="height:10px"></div>
+        <div class="code">curl -X POST http://localhost:8000/v1/analyze \
+  -H "X-API-Key: test123" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"do you have discord?","user_id":"u1","target_id":"u2"}'</div>
+        <div class="note" style="margin-top:10px">
+          Tip: use consistent <b>user_id</b> and <b>target_id</b> to see session escalation.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Response you can act on</h2>
+        <ul style="color:var(--muted);margin:0 0 0 18px">
+          <li><b>score</b>: risk for this message</li>
+          <li><b>conversation_risk</b>: cumulative session risk</li>
+          <li><b>risk_level</b>: SAFE / LOW / MEDIUM / HIGH / CRITICAL</li>
+          <li><b>stage</b>: conversation stage</li>
+          <li><b>categories</b>: per-category scores</li>
+          <li><b>matched</b>: matched patterns for explainability</li>
+        </ul>
+        <div style="height:10px"></div>
+        <div class="mini">
+          <b>Actions</b>
+          <div class="muted">
+            Block message • Shadowban sender • Alert moderators • Lock chat • Create incident report
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="faq" class="section faq">
+      <h2>FAQ</h2>
+      <details>
+        <summary>Does PlaySentinel store chat messages?</summary>
+        <div class="muted" style="margin-top:8px">
+          Logging is optional. You can store message hashes (no plaintext storage) via <code>SAFEPLAY_LOG_MESSAGES=0</code>.
+        </div>
+      </details>
+      <details>
+        <summary>Is this production-ready?</summary>
+        <div class="muted" style="margin-top:8px">
+          It’s an MVP. Production typically adds Redis/DB for sessions, monitoring, and richer datasets/ML models.
+        </div>
+      </details>
+      <details>
+        <summary>How do I integrate it into Unity/Roblox?</summary>
+        <div class="muted" style="margin-top:8px">
+          Call the API from your backend. Use the response fields to trigger moderation actions in your game or platform.
+        </div>
+      </details>
+    </div>
+
+    <div class="section card" id="contact">
+      <h2>Contact</h2>
+      <div class="muted">
+        Want a pilot? Send your game/platform, MAU, and estimated chat volume. We can set up a trial key.
+      </div>
+      <div class="contact">
+        <a class="btn primary" href="mailto:play.sentinel@gmx.net?subject=PlaySentinel%20Pilot&body=Hi%2C%0A%0AWe%20want%20to%20pilot%20PlaySentinel.%0A-Game%3A%0A-Platform%3A%0A-MAU%3A%0A-Messages%2Fmonth%3A%0A-Needs%3A%0A%0AThanks!">
+          Email for a pilot
+        </a>
+      </div>
+    </div>
+
+    <!-- ⚠️ PRIVACY NOTE:
+         Ich setze hier Platzhalter, damit du deine Adresse nicht erneut öffentlich kopieren musst.
+         Du kannst deinen Block wieder rein-pasten. -->
+    <div id="impressum" class="section card">
+      <h2>Impressum</h2>
+      <p class="muted">Angaben gemäß § 5 TMG</p>
+      <p>
+        <b>Betreiber:</b> DEIN NAME<br>
+        <b>Anschrift:</b> STRASSE HAUSNR, PLZ ORT, Deutschland<br>
+        <b>E-Mail:</b> <a href="mailto:play.sentinel@gmx.net">play.sentinel@gmx.net</a><br>
+        <b>Telefon:</b> OPTIONAL
+      </p>
+      <p class="muted">
+        <b>Haftung für Inhalte</b><br>
+        Inhalte wurden mit Sorgfalt erstellt. Für Aktualität/Vollständigkeit keine Gewähr.
+      </p>
+      <p class="muted">
+        <b>Haftung für Links</b><br>
+        Externe Links: keine Haftung für Inhalte Dritter; verantwortlich ist der jeweilige Anbieter.
+      </p>
+      <p class="muted">
+        <b>Urheberrecht</b><br>
+        Inhalte unterliegen dem Urheberrecht. Vervielfältigung nur mit Zustimmung.
+      </p>
+    </div>
+
+    <div id="datenschutz" class="section card">
+      <h2>Datenschutzerklärung</h2>
+
+      <p class="muted">1. Allgemeine Hinweise</p>
+      <p>
+        Der Schutz Ihrer personenbezogenen Daten ist uns wichtig. Diese Website dient ausschließlich der
+        Präsentation des Projekts „PlaySentinel“ und stellt keine aktive Benutzerregistrierung oder
+        Kundenverwaltung bereit.
+      </p>
+
+      <p class="muted">2. Verantwortlicher</p>
+      <p>
+        Verantwortlich im Sinne der DSGVO:<br>
+        <b>DEIN NAME</b><br>
+        STRASSE HAUSNR<br>
+        PLZ ORT, Deutschland<br>
+        E-Mail: play.sentinel@gmx.net
+      </p>
+
+      <p class="muted">3. Server-Logfiles</p>
+      <p>
+        Beim Aufruf dieser Website werden automatisch Informationen durch den Webserver erfasst
+        (z. B. IP-Adresse, Datum und Uhrzeit, Browsertyp).
+        Diese Daten dienen ausschließlich der technischen Bereitstellung der Website.
+        Eine Zusammenführung dieser Daten mit anderen Datenquellen erfolgt nicht.
+      </p>
+
+      <p class="muted">4. Kontaktaufnahme per E-Mail</p>
+      <p>
+        Wenn Sie uns per E-Mail kontaktieren, werden die von Ihnen übermittelten Daten
+        ausschließlich zur Bearbeitung Ihrer Anfrage verwendet.
+        Eine Weitergabe an Dritte erfolgt nicht.
+      </p>
+
+      <p class="muted">5. API-Demo</p>
+      <p>
+        Die Demo-Funktion dient ausschließlich zu Testzwecken. Es werden keine personenbezogenen Daten
+        dauerhaft gespeichert. Optional können technische Logs zur Verbesserung des Systems erfasst werden.
+      </p>
+
+      <p class="muted">6. Ihre Rechte</p>
+      <p>
+        Sie haben jederzeit das Recht auf Auskunft, Berichtigung, Löschung oder Einschränkung der Verarbeitung
+        Ihrer gespeicherten Daten gemäß DSGVO.
+      </p>
+
+      <p class="muted">7. Stand</p>
+      <p>Stand: 2026</p>
+    </div>
+
+    <div class="footer">
+      <div>© <span id="y"></span> PlaySentinel — Real-Time Safety Intelligence for Multiplayer Games.</div>
+      <div>
+        <a href="#impressum">Impressum</a> ·
+        <a href="#datenschutz">Datenschutz</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("y").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
