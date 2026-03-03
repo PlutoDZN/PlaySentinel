@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="920" height="220" viewBox="0 0 920 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="gradBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#60A5FA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background (transparent by default). Remove rect if you want a solid bg -->
+  <!-- <rect width="920" height="220" fill="#0B1220"/> -->
+
+  <!-- Icon -->
+  <g transform="translate(40,35)">
+    <g filter="url(#glow)">
+      <circle cx="75" cy="75" r="62" stroke="url(#gradBlue)" stroke-width="6"/>
+      <path d="M120 40 A62 62 0 0 1 133 75" stroke="url(#gradBlue)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M112 48 A50 50 0 0 1 121 75" stroke="#3B82F6" stroke-opacity="0.75" stroke-width="6" stroke-linecap="round"/>
+      <path d="M104 56 A38 38 0 0 1 109 75" stroke="#3B82F6" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round"/>
+
+      <!-- Minimal shield core (hex) -->
+      <polygon points="75,49 93,60 93,80 75,91 57,80 57,60"
+               stroke="#3B82F6" stroke-width="6" fill="none" stroke-linejoin="round"/>
+
+      <circle cx="75" cy="75" r="3.5" fill="#3B82F6"/>
+      <circle cx="118" cy="57" r="6" fill="#22C55E"/>
+    </g>
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(190,82)">
+    <text x="0" y="0"
+          font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial"
+          font-size="56"
+          letter-spacing="2.8"
+          fill="#E5E7EB">
+      PLAY <tspan font-weight="800">SENTINEL</tspan>
+    </text>
+    <text x="0" y="44"
+          font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial"
+          font-size="18"
+          letter-spacing="0.6"
+          fill="#A7B0C0">
+      Real‑Time Safety Intelligence for Multiplayer Games
+    </text>
+  </g>
+</svg>
