@@ -1,10 +1,11 @@
-
 from collections import deque
 from datetime import datetime
 from html import escape
 from pathlib import Path
 from typing import Any, Dict
 import json
+import sys
+import threading
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,6 +51,18 @@ detector = Detector(
 
 _rate_store: Dict[str, deque] = {}
 RATE_LIMIT_PER_MIN = settings.rate_limit_per_min
+
+
+# --- Bot import from sibling folder in repo root ---
+BOT_DIR = Path(__file__).resolve().parents[2] / "playsentinel_discord_bot"
+if str(BOT_DIR) not in sys.path:
+    sys.path.insert(0, str(BOT_DIR))
+
+try:
+    import bot as discord_bot
+except Exception as exc:
+    discord_bot = None
+    print(f"[BOT IMPORT WARN] Could not import Discord bot: {exc}")
 
 
 class ResetSessionRequest(BaseModel):
@@ -101,6 +114,21 @@ def _read_incidents(limit: int = 200) -> list[dict]:
                 continue
 
     return list(reversed(rows[-limit:]))
+
+
+@app.on_event("startup")
+def start_discord_bot():
+    if discord_bot is None:
+        print("[BOT START WARN] Discord bot import failed, skipping bot startup.")
+        return
+
+    def run_bot():
+        try:
+            discord_bot.main()
+        except Exception as exc:
+            print(f"[BOT START ERROR] {exc}")
+
+    threading.Thread(target=run_bot, daemon=True).start()
 
 
 router = APIRouter(prefix="/v1", dependencies=[Depends(_rate_limit)])
@@ -184,11 +212,17 @@ def session(user_id: str, target_id: str):
 @router.delete("/session/{user_id}/{target_id}")
 def delete_session(user_id: str, target_id: str):
     _cleanup_sessions()
-    deleted = store.delete(user_id, target_id)
+
+    try:
+        deleted = store.delete(user_id, target_id)
+    except Exception as exc:
+        print(f"[RESET WARN] delete_session failed for {user_id}->{target_id}: {exc}")
+        deleted = False
+
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
-    return {"status": "reset", "user_id": user_id, "target_id": target_id}
 
+    return {"status": "reset", "user_id": user_id, "target_id": target_id}
 
 
 @router.post("/reset_session")
@@ -208,14 +242,6 @@ def reset_session(req: ResetSessionRequest):
             "target_id": req.target_id,
             "platform": req.platform,
         }
-
-    return {
-        "status": "reset",
-        "user_id": req.user_id,
-        "target_id": req.target_id,
-        "platform": req.platform,
-    }
-
 
     return {
         "status": "reset",
