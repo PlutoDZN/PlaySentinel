@@ -22,10 +22,9 @@ class PolicyEngine:
     """
 
     def __init__(self, policy_path: str | None = None):
-        # Allow overriding via ENV, otherwise use provided path or local default.
-        env_path = os.getenv("PLAY_SENTINEL_POLICY_PATH", 
-        POLICY_PATH = Path(__file__).resolve().parent / "default_policy.json")
-        self.policy_path = Path(env_path or policy_path or "default_policy.json")
+        default_policy_path = Path(__file__).resolve().parent / "default_policy.json"
+        env_path = os.getenv("PLAY_SENTINEL_POLICY_PATH")
+        self.policy_path = Path(env_path) if env_path else Path(policy_path) if policy_path else default_policy_path
         self.policy = self.load_policy()
 
     def load_policy(self) -> Dict[str, Any]:
