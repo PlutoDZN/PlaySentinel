@@ -1,0 +1,69 @@
+{
+  "policy_version": "2026-03-05",
+  "rules": [
+    {
+      "id": "R-CRIT-1",
+      "description": "Critical risk locks chat immediately",
+      "conditions": {
+        "risk_level": [
+          "CRITICAL"
+        ]
+      },
+      "actions": [
+        "LOCK_CHAT",
+        "ALERT_MOD",
+        "CREATE_INCIDENT"
+      ]
+    },
+    {
+      "id": "R-HIGH-1",
+      "description": "High risk alerts moderator",
+      "conditions": {
+        "risk_level": [
+          "HIGH"
+        ]
+      },
+      "actions": [
+        "ALERT_MOD",
+        "FLAG"
+      ]
+    },
+    {
+      "id": "R-STAGE-1",
+      "description": "Grooming stage triggers shadowban",
+      "conditions": {
+        "stage": [
+          "GROOMING"
+        ]
+      },
+      "actions": [
+        "SHADOWBAN_SENDER"
+      ]
+    },
+    {
+      "id": "R-ISO-1",
+      "description": "Isolation stage suggests chat lock + mod ping",
+      "conditions": {
+        "stage": [
+          "ISOLATION"
+        ]
+      },
+      "actions": [
+        "ALERT_MOD",
+        "FLAG"
+      ]
+    },
+    {
+      "id": "R-MED-1",
+      "description": "Medium risk logs session",
+      "conditions": {
+        "risk_level": [
+          "MEDIUM"
+        ]
+      },
+      "actions": [
+        "LOG"
+      ]
+    }
+  ]
+}
