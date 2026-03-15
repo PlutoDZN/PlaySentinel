@@ -4,8 +4,6 @@ from html import escape
 from pathlib import Path
 from typing import Any, Dict
 import json
-import sys
-import threading
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +15,7 @@ from .schemas import AnalyzeRequest, AnalyzeResponse, HealthResponse
 from .store import InMemorySessionStore
 from .detector import Detector
 from .policy_engine import PolicyEngine
+from .utils import build_explanations
 
 
 settings = Settings()
@@ -29,7 +28,7 @@ app = FastAPI(title="PlaySentinel API", version="1.2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://plutodzn.github.io"],
+    allow_origins=["https://plutodzn.github.io", "https://plutodzn.github.io/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,18 +50,8 @@ detector = Detector(
 
 _rate_store: Dict[str, deque] = {}
 RATE_LIMIT_PER_MIN = settings.rate_limit_per_min
-
-
-# --- Bot import from sibling folder in repo root ---
-BOT_DIR = Path(__file__).resolve().parents[2] / "playsentinel_discord_bot"
-if str(BOT_DIR) not in sys.path:
-    sys.path.insert(0, str(BOT_DIR))
-
-try:
-    import bot as discord_bot
-except Exception as exc:
-    discord_bot = None
-    print(f"[BOT IMPORT WARN] Could not import Discord bot: {exc}")
+_demo_rate_store: Dict[str, deque] = {}
+DEMO_RATE_LIMIT_PER_MIN = 20
 
 
 class ResetSessionRequest(BaseModel):
@@ -78,7 +67,8 @@ def _check_api_key(x_api_key: str = Header(...)) -> str:
 
 
 def _rate_limit(request: Request, api_key: str = Depends(_check_api_key)):
-    identifier = f"{api_key}:{request.client.host}"
+    client_host = request.client.host if request.client else "unknown"
+    identifier = f"{api_key}:{client_host}"
     now = datetime.utcnow().timestamp()
     bucket = _rate_store.setdefault(identifier, deque())
 
@@ -87,6 +77,21 @@ def _rate_limit(request: Request, api_key: str = Depends(_check_api_key)):
 
     if len(bucket) >= RATE_LIMIT_PER_MIN:
         raise HTTPException(status_code=429, detail="rate limit exceeded", headers={"Retry-After": "60"})
+
+    bucket.append(now)
+
+
+def _demo_rate_limit(request: Request):
+    client_host = request.client.host if request.client else "unknown"
+    identifier = f"demo:{client_host}"
+    now = datetime.utcnow().timestamp()
+    bucket = _demo_rate_store.setdefault(identifier, deque())
+
+    while bucket and bucket[0] <= now - 60:
+        bucket.popleft()
+
+    if len(bucket) >= DEMO_RATE_LIMIT_PER_MIN:
+        raise HTTPException(status_code=429, detail="demo rate limit exceeded", headers={"Retry-After": "60"})
 
     bucket.append(now)
 
@@ -116,38 +121,14 @@ def _read_incidents(limit: int = 200) -> list[dict]:
     return list(reversed(rows[-limit:]))
 
 
-@app.on_event("startup")
-def start_discord_bot():
-    if discord_bot is None:
-        print("[BOT START WARN] Discord bot import failed, skipping bot startup.")
-        return
-
-    def run_bot():
-        try:
-            discord_bot.main()
-        except Exception as exc:
-            print(f"[BOT START ERROR] {exc}")
-
-    threading.Thread(target=run_bot, daemon=True).start()
-
-
-router = APIRouter(prefix="/v1", dependencies=[Depends(_rate_limit)])
-
-
-@router.get("/health", response_model=HealthResponse)
-def health():
-    _cleanup_sessions()
-    return HealthResponse(status="ok", active_sessions=len(store.snapshot()))
-
-
-@router.post("/analyze", response_model=AnalyzeResponse)
-def analyze(req: AnalyzeRequest):
+def _run_analysis(req: AnalyzeRequest) -> AnalyzeResponse:
     _cleanup_sessions()
 
     score, conv_risk, cats, matched, stage, lang, reasons = detector.analyze(
         req.message, user_id=req.user_id, target_id=req.target_id
     )
 
+    explanations, evidence = build_explanations(matched)
     risk_level = detector.get_risk_level(int(conv_risk))
 
     policy_result = policy_engine.evaluate({
@@ -164,10 +145,32 @@ def analyze(req: AnalyzeRequest):
         categories=cats,
         matched=matched,
         reasons=reasons,
+        explanations=explanations,
+        evidence=evidence,
         actions=policy_result.get("actions", []),
         action_reasons=policy_result.get("action_reasons", []),
         policy_version=policy_result.get("policy_version", ""),
     )
+
+
+router = APIRouter(prefix="/v1", dependencies=[Depends(_rate_limit)])
+
+
+@router.get("/health", response_model=HealthResponse)
+def health():
+    _cleanup_sessions()
+    return HealthResponse(status="ok", active_sessions=len(store.snapshot()))
+
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+def analyze(req: AnalyzeRequest):
+    return _run_analysis(req)
+
+
+@app.post("/v1/demo/analyze", response_model=AnalyzeResponse)
+def demo_analyze(req: AnalyzeRequest, request: Request):
+    _demo_rate_limit(request)
+    return _run_analysis(req)
 
 
 @router.get("/sessions")
@@ -212,16 +215,9 @@ def session(user_id: str, target_id: str):
 @router.delete("/session/{user_id}/{target_id}")
 def delete_session(user_id: str, target_id: str):
     _cleanup_sessions()
-
-    try:
-        deleted = store.delete(user_id, target_id)
-    except Exception as exc:
-        print(f"[RESET WARN] delete_session failed for {user_id}->{target_id}: {exc}")
-        deleted = False
-
+    deleted = store.delete(user_id, target_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
-
     return {"status": "reset", "user_id": user_id, "target_id": target_id}
 
 
