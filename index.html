@@ -1,1214 +1,1539 @@
-<!doctype html>
-<html lang="de">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PlaySentinel — Real-Time Safety Intelligence for Multiplayer Games</title>
-  <meta id="metaDesc" name="description" content="PlaySentinel erkennt Grooming-Risiko und High-Risk Conversation Patterns in Game-Chats mit Session-Risk Scoring und erklärbaren Stages." />
-
-  <link rel="icon" type="image/png" href="./playsentinel-icon-192.png">
-  <meta name="theme-color" content="#0B1220" />
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlaySentinel — Investor & Tester Demo</title>
   <style>
     :root{
-      --bg:#0B1220;
-      --panel:rgba(255,255,255,.05);
-      --panel2:rgba(255,255,255,.025);
-      --text:#E5E7EB;
-      --muted:#A7B0C0;
-      --blue:#3B82F6;
-      --blue2:#60A5FA;
-      --green:#22C55E;
-      --yellow:#FBBF24;
-      --red:#EF4444;
-      --border:rgba(255,255,255,.12);
-      --shadow: 0 18px 44px rgba(0,0,0,.48);
-      --r:18px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial;
+      --bg:#07101d;
+      --bg2:#0a1730;
+      --panel:rgba(13,24,48,.92);
+      --panel2:rgba(18,34,66,.96);
+      --soft:rgba(255,255,255,.04);
+      --line:rgba(255,255,255,.08);
+      --text:#eef4ff;
+      --muted:#9fb0d5;
+      --blue:#73aaff;
+      --blue2:#7a62ff;
+      --green:#2cd38e;
+      --yellow:#f2cb73;
+      --orange:#ff9b56;
+      --red:#ff667b;
+      --shadow:0 20px 60px rgba(0,0,0,.35);
+      --radius:22px;
+      --radius-sm:14px;
     }
-
     *{box-sizing:border-box}
-    html, body {height:100%}
+    html{scroll-behavior:smooth}
     body{
       margin:0;
-      font-family:var(--sans);
       color:var(--text);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
-      var(--bg);
-      line-height:1.55;
-
-      /* Safety net (but we still fix root cause below) */
-      overflow-x:hidden;
+        radial-gradient(circle at top left, rgba(115,170,255,.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(255,102,123,.12), transparent 24%),
+        linear-gradient(180deg,var(--bg) 0%, #091629 100%);
+      min-height:100vh;
     }
-
-    /* Fix: prevent long tokens from forcing page width */
-    img, svg {max-width:100%}
-    a{color:inherit}
-    .wrap{max-width:1120px;margin:0 auto;padding:24px}
-    @media(max-width:520px){.wrap{padding:18px}}
-
-    .card{
-      background:linear-gradient(180deg, var(--panel), var(--panel2));
-      border:1px solid var(--border);
-      border-radius:var(--r);
-      padding:18px;
+    .app{
+      display:grid;
+      grid-template-columns:250px 1fr;
+      min-height:100vh;
+    }
+    .sidebar{
+      position:sticky;
+      top:0;
+      height:100vh;
+      padding:20px 16px;
+      background:rgba(6,11,22,.55);
+      border-right:1px solid var(--line);
+      backdrop-filter:blur(16px);
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+      align-items:stretch;
+    }
+    .brand-wrap{display:grid;gap:10px}
+    .logo{
+      width:72px;height:72px;border-radius:18px;
+      display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(135deg,rgba(115,170,255,.18),rgba(122,98,255,.18));
+      border:1px solid var(--line);
+      overflow:hidden;
       box-shadow:var(--shadow);
-
-      /* CRITICAL FIX: allow grid/flex children to shrink */
-      min-width:0;
     }
-    @media(max-width:520px){.card{padding:16px}}
-    .muted{color:var(--muted)}
-
-    .btn{
-      display:inline-flex;align-items:center;justify-content:center;
-      padding:10px 14px;border-radius:12px;border:1px solid var(--border);
-      text-decoration:none;font-weight:900;
-      background:rgba(255,255,255,.03);
-      transition:transform .08s ease, background .15s ease, border-color .15s ease;
-      gap:8px;
-      cursor:pointer;
-      user-select:none;
-      white-space:nowrap;
-    }
-    .btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}
-    .btn.primary{
-      color:#06101f;
-      border-color:rgba(59,130,246,.45);
-      background:linear-gradient(135deg, rgba(59,130,246,1), rgba(96,165,250,.78));
-      box-shadow: 0 12px 35px rgba(59,130,246,.25);
-    }
-    .btn.green{
-      color:#05130b;
-      border-color:rgba(34,197,94,.35);
-      background:linear-gradient(135deg, rgba(34,197,94,1), rgba(34,197,94,.60));
-      box-shadow: 0 12px 35px rgba(34,197,94,.18);
-    }
-
-    /* NAV */
+    .logo img{width:100%;height:100%;object-fit:contain;padding:8px}
+    .brand-name{font-size:20px;font-weight:900;letter-spacing:-.03em}
+    .brand-sub{font-size:12px;line-height:1.5;color:var(--muted)}
     .nav{
-      position:sticky;top:0;z-index:50;
-      backdrop-filter: blur(10px);
-      background:rgba(11,18,32,.62);
-      border-bottom:1px solid rgba(255,255,255,.08);
+      display:grid;
+      gap:10px;
     }
-    .navinner{
-      max-width:1120px;margin:0 auto;
-      padding:10px 24px;
-      display:flex;align-items:center;justify-content:space-between;gap:12px;
-
-      /* FIX: allow flex children to shrink */
-      min-width:0;
-    }
-    @media(max-width:520px){.navinner{padding:10px 18px}}
-
-    .brand{display:flex;align-items:center;gap:12px;min-width:0}
-    .brand img{width:42px;height:42px;flex:0 0 auto;filter: drop-shadow(0 0 14px rgba(59,130,246,.45));}
-    .brandText{min-width:0}
-    .brand .name{
-      text-transform:uppercase;
-      letter-spacing:.22em;
-      font-weight:800;
-      font-size:13px;
-      line-height:1.1;
-      white-space:nowrap;
-
-      /* FIX: clip instead of overflowing */
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .brand .name b{font-weight:950}
-    .brand .tag{
-      margin-top:6px;color:var(--muted);font-size:12.5px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      max-width:min(56vw, 520px);
-    }
-    @media(max-width:520px){
-      .brand img{width:38px;height:38px}
-      .brand .tag{display:none}
-      .brand .name{letter-spacing:.14em;max-width:60vw}
-    }
-
-    .navlinks{
-      display:flex;gap:16px;align-items:center;color:var(--muted);font-size:14px;
-      min-width:0;
-    }
-    .navlinks a{text-decoration:none;opacity:.92}
-    .navlinks a:hover{opacity:1;color:var(--text)}
-    .navRight{display:flex;gap:10px;align-items:center;flex:0 0 auto}
-
-    .lang{
-      height:42px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.03);
+    .nav-btn{
+      width:100%;
+      border:1px solid var(--line);
+      background:var(--soft);
       color:var(--text);
-      font-weight:900;
-      padding:0 10px;
-      outline:none;
-      cursor:pointer;
-    }
-    .lang:hover{background:rgba(255,255,255,.0);border-color:rgba(255,255,255,.18)}
-    .lang option{color:#111;background:#fff}
-
-    .hamburger{
-      display:none;
-      width:42px;height:42px;border-radius:12px;border:1px solid var(--border);
-      background:rgba(255,255,255,.1);
-      align-items:center;justify-content:center;
-      cursor:pointer;
-    }
-    .hamburger:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18)}
-    .hamburger svg{width:20px;height:20px}
-
-    .mobileMenu{
-      display:none;
-      position:fixed;
-      top:70px; right:18px; left:18px;
-      max-width:520px;
-      margin-left:auto;
-      background:rgba(7,16,34,.96);
-      border:1px solid rgba(255,255,255,.14);
       border-radius:16px;
-      box-shadow:var(--shadow);
-      padding:10px;
+      padding:12px 14px;
+      text-align:left;
+      cursor:pointer;
+      display:flex;
+      gap:12px;
+      align-items:center;
+      transition:.18s ease;
+    }
+    .nav-btn:hover,.nav-btn.active{
+      transform:translateY(-1px);
+      background:rgba(115,170,255,.12);
+      border-color:rgba(115,170,255,.32);
+    }
+    .nav-icon{
+      width:24px;height:24px;display:grid;place-items:center;font-size:18px;flex:0 0 24px;
+    }
+    .nav-label{display:grid;gap:2px}
+    .nav-title{font-size:14px;font-weight:800}
+    .nav-sub{font-size:11px;color:var(--muted)}
+    .side-card{
+      margin-top:auto;
+      padding:14px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:var(--soft);
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+    .side-card strong{color:var(--text);display:block;margin-bottom:4px}
 
-      /* FIX: ensure it never creates width overflow */
-      width:auto;
-      max-width:520px;
-    }
-    .mobileMenu .row{
-      display:flex;gap:10px;align-items:center;
-      padding:10px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.02);
-      margin-bottom:10px;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
-    .mobileMenu a{
-      display:block;
-      padding:12px 10px;
-      text-decoration:none;
-      color:var(--text);
-      border-radius:12px;
-      font-weight:900;
-    }
-    .mobileMenu a:hover{background:rgba(255,255,255,.06)}
-    .mobileMenu .mutedlink{color:var(--muted);font-weight:800}
-
-    @media(max-width:980px){
-      .navlinks{display:none}
-      .hamburger{display:flex}
-      .navRight .btn.docs{display:none}
-    }
-
-    /* HERO */
+    .main{padding:28px}
     .hero{
       display:grid;
-      grid-template-columns: 1.12fr .88fr;
-      gap:14px;
-      margin:18px 0 22px 0;
-      align-items:start;
-
-      /* FIX: allow grid items to shrink */
-      min-width:0;
+      grid-template-columns:1.35fr .85fr;
+      gap:18px;
+      margin-bottom:18px;
     }
-    .hero > *{min-width:0;} /* CRITICAL FIX */
-    @media(max-width:980px){.hero{grid-template-columns:1fr}}
-
-    h1{
-      margin:0 0 10px 0;
-      font-size:clamp(30px, 4.4vw, 46px);
-      line-height:1.06;
-      letter-spacing:-0.01em;
+    .hero-card,.card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
     }
-    .sub{color:var(--muted);max-width:70ch}
-    .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-    .cta .btn{flex:0 0 auto}
-    @media(max-width:520px){
-      .cta .btn{flex:1 1 auto}
-      .cta .btn.primary{flex:1 1 100%}
-    }
-
-    .pills{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-    .pill{
-      font-size:12px;color:var(--muted);
-      padding:6px 10px;border:1px solid var(--border);
-      border-radius:999px;background:rgba(255,255,255,.02)
-    }
-
-    /* sections */
-    .section{margin:22px 0}
-    .section h2{margin:0 0 10px 0;font-size:24px}
-    .split{
-      display:grid;grid-template-columns:1fr 1fr;gap:12px;
-      min-width:0; /* FIX */
-    }
-    .split > *{min-width:0;} /* CRITICAL FIX */
-    @media(max-width:980px){.split{grid-template-columns:1fr}}
-
-    /* What you get grid */
-    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px;min-width:0}
-    .grid3 > *{min-width:0}
-    @media(max-width:980px){.grid3{grid-template-columns:1fr}}
-    .mini{
-      background:rgba(255,255,255,.02);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:16px;
-      padding:14px;
-
-      min-width:0;
-    }
-    .mini b{display:block;margin-bottom:6px}
-    .iconRow{display:flex;gap:10px;align-items:flex-start;min-width:0}
-    .iconRow > div{min-width:0}
-    .ico{
-      width:36px;height:36px;border-radius:12px;
-      background:rgba(59,130,246,.16);
-      border:1px solid rgba(59,130,246,.25);
-      display:flex;align-items:center;justify-content:center;
-      flex:0 0 auto;
-    }
-    .ico svg{width:18px;height:18px}
-
-    /* Code blocks - responsive */
-    .code{
-      background:#071022;
-      border:1px solid rgba(59,130,246,.22);
-      border-radius:16px;
-      padding:14px;
-      font-family:var(--mono);
-      font-size:12.8px;
-
-      max-width:100%;
-      min-width:0;        /* FIX */
-      overflow:auto;      /* internal scroll only */
-      white-space:pre;    /* preserve formatting */
-    }
-    @media(max-width:520px){.code{font-size:12px}}
-    .code::-webkit-scrollbar{height:10px}
-    .code::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px}
-
-    /* timeline */
-    .timeline{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-    .step{
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.03);
-      padding:10px 12px;border-radius:14px;
-      display:flex;align-items:center;gap:10px;
-      min-width:190px;
-      flex:1 1 220px;
-    }
-    @media(max-width:520px){.step{min-width:unset;flex:1 1 100%}}
-    .dot{width:12px;height:12px;border-radius:999px;background:var(--blue)}
-    .dot.yellow{background:var(--yellow)}
-    .dot.red{background:var(--red)}
-    .dot.green{background:var(--green)}
-
-    /* pricing */
-    .pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;min-width:0}
-    .pricing > *{min-width:0}
-    @media(max-width:980px){.pricing{grid-template-columns:1fr}}
-    .price h3{margin:0 0 6px 0}
-    .price .pnum{font-size:34px;font-weight:950;margin:6px 0}
-    .price ul{margin:10px 0 0 18px;color:var(--muted)}
-    .tag{
-      display:inline-block;
-      font-size:12px;
-      padding:5px 10px;
+    .hero-card{padding:24px}
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 14px;
       border-radius:999px;
-      background:rgba(59,130,246,.20);
-      border:1px solid rgba(59,130,246,.35);
-      color:var(--text);
-      margin-bottom:10px;
-      font-weight:900;
+      background:rgba(115,170,255,.10);
+      border:1px solid rgba(115,170,255,.24);
+      color:#deebff;
+      font-size:13px;
+      margin-bottom:14px;
     }
-
-    /* FAQ */
-    .faq details{
-      border:1px solid var(--border);
+    h1{
+      margin:0;
+      font-size:clamp(30px,4vw,54px);
+      line-height:1.02;
+      letter-spacing:-.045em;
+    }
+    .hero-copy{
+      margin-top:14px;
+      max-width:860px;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.7;
+    }
+    .hero-points{
+      display:grid;
+      gap:10px;
+      margin-top:18px;
+    }
+    .hero-point{
+      border:1px solid var(--line);
+      background:var(--soft);
       border-radius:14px;
       padding:12px 14px;
-      background:rgba(255,255,255,.02);
-      margin-top:10px;
-    }
-    .faq summary{cursor:pointer;font-weight:950}
-
-    /* footer */
-    .footer{
-      margin-top:22px;
-      padding:18px 0 10px 0;
-      border-top:1px solid rgba(255,255,255,.10);
       color:var(--muted);
-      font-size:13px;
-      display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
-      min-width:0;
+      line-height:1.55;
     }
-    .footer a{text-decoration:none;color:var(--muted);font-weight:900}
-    .footer a:hover{color:var(--text)}
+    .hero-point strong{color:var(--text)}
+    .hero-actions{
+      margin-top:18px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .btn{
+      border:none;
+      padding:13px 18px;
+      border-radius:14px;
+      font-weight:800;
+      cursor:pointer;
+      color:white;
+      transition:.18s ease;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{
+      background:linear-gradient(135deg,var(--blue),var(--blue2));
+      box-shadow:0 14px 34px rgba(115,170,255,.20);
+    }
+    .btn.secondary{
+      background:rgba(255,255,255,.05);
+      border:1px solid var(--line);
+    }
+    .hero-side{
+      padding:24px;
+      display:grid;
+      gap:12px;
+    }
+    .mini-title{
+      font-size:12px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+    .big-line{
+      font-size:30px;
+      font-weight:900;
+      letter-spacing:-.04em;
+    }
+    .small-copy{color:var(--muted);line-height:1.65}
+    .mini-box{
+      background:var(--soft);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:14px;
+    }
+    .mini-box strong{display:block;margin-bottom:6px}
 
-    section{scroll-margin-top:92px}
-    .note{font-size:12px;color:var(--muted)}
-    .hr{height:1px;background:rgba(255,255,255,.10);margin:14px 0;border-radius:999px}
-    .sr-only{
-      position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;
-      overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+    .kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+      margin-bottom:18px;
+    }
+    .kpi{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+    .kpi-label{
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      margin-bottom:8px;
+    }
+    .kpi-value{
+      font-size:24px;
+      font-weight:900;
+      letter-spacing:-.04em;
+    }
+    .kpi-note{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.5;
+      margin-top:6px;
+    }
+
+    .controls{
+      display:grid;
+      gap:14px;
+      margin-bottom:18px;
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .chip{
+      border:1px solid var(--line);
+      background:var(--soft);
+      color:var(--text);
+      border-radius:999px;
+      padding:10px 14px;
+      font-weight:700;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+    .chip:hover,.chip.active{
+      background:rgba(115,170,255,.12);
+      border-color:rgba(115,170,255,.32);
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:1.24fr .94fr;
+      gap:18px;
+    }
+    .left-col,.right-col{
+      display:grid;
+      gap:18px;
+      align-content:start;
+    }
+    .card-header{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      padding:18px 20px 0;
+      align-items:flex-start;
+    }
+    .card-title{font-size:16px;font-weight:900;letter-spacing:-.02em}
+    .card-subtitle{font-size:13px;color:var(--muted)}
+    .card-body{padding:18px 20px 20px}
+    .legend{display:flex;gap:10px;flex-wrap:wrap}
+    .legend span{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+    .dot{width:10px;height:10px;border-radius:999px;display:inline-block}
+
+    .chat-box{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:rgba(255,255,255,.03);
+      padding:16px;
+      min-height:330px;
+      max-height:520px;
+      overflow:auto;
+    }
+    .bubble{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:14px;
+    }
+    .avatar{
+      width:36px;height:36px;border-radius:12px;
+      display:grid;place-items:center;font-size:12px;font-weight:900;flex:0 0 36px;
+    }
+    .avatar.sender{background:rgba(255,102,123,.16);color:#ffd6dc}
+    .avatar.target{background:rgba(115,170,255,.16);color:#dbe7ff}
+    .message{
+      background:rgba(255,255,255,.035);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      padding:12px 14px;
+      max-width:92%;
+    }
+    .meta{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+    .msg-text{font-size:14px;line-height:1.55;white-space:pre-wrap}
+
+    textarea,input[type="text"]{
+      width:100%;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      border-radius:16px;
+      padding:14px 15px;
+      font:inherit;
+      outline:none;
+    }
+    textarea{min-height:190px;resize:vertical;line-height:1.55}
+    .help{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.6}
+    .input-actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+    .hidden{display:none !important}
+
+    .risk-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+    .stat{
+      background:var(--soft);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:16px;
+    }
+    .stat-label{
+      font-size:12px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      margin-bottom:8px;
+    }
+    .stat-value{
+      font-size:28px;
+      font-weight:900;
+      letter-spacing:-.04em;
+    }
+    .risk-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:900;
+      border:1px solid transparent;
+    }
+    .risk-low{background:rgba(44,211,142,.12);color:#bef7df;border-color:rgba(44,211,142,.25)}
+    .risk-medium{background:rgba(242,203,115,.12);color:#ffebb8;border-color:rgba(242,203,115,.25)}
+    .risk-high{background:rgba(255,155,86,.14);color:#ffd8bc;border-color:rgba(255,155,86,.25)}
+    .risk-critical{background:rgba(255,102,123,.14);color:#ffd4db;border-color:rgba(255,102,123,.28)}
+
+    .meter-wrap{margin-top:14px}
+    .meter{
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.05);
+    }
+    .meter-fill{
+      height:100%;
+      width:0%;
+      transition:width .35s ease;
+      background:linear-gradient(90deg,var(--green),var(--yellow),var(--orange),var(--red));
+    }
+    .meter-scale{
+      display:flex;
+      justify-content:space-between;
+      margin-top:8px;
+      font-size:11px;
+      color:var(--muted);
+    }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+    .mini{
+      background:var(--soft);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+    }
+    .mini-label{
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      margin-bottom:8px;
+    }
+    .mini-value{
+      font-size:18px;
+      font-weight:900;
+    }
+    .summary-box{
+      margin-top:16px;
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .tab{
+      border:1px solid var(--line);
+      background:var(--soft);
+      color:var(--text);
+      border-radius:12px;
+      padding:10px 12px;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .tab.active{
+      background:rgba(115,170,255,.12);
+      border-color:rgba(115,170,255,.32);
+    }
+    .panel{display:none}
+    .panel.active{display:block}
+
+    .stack{display:grid;gap:10px}
+    .item{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.035);
+      border-radius:14px;
+      padding:13px 14px;
+    }
+    .item-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-bottom:6px;
+    }
+    .item-name{font-size:14px;font-weight:800}
+    .item-score{font-size:12px;color:var(--muted)}
+    .item-desc{font-size:13px;color:var(--muted);line-height:1.5}
+
+    .breakdown-list{display:grid;gap:12px}
+    .breakdown-row{
+      display:grid;
+      grid-template-columns:170px 1fr 48px;
+      gap:12px;
+      align-items:center;
+    }
+    .breakdown-name{font-size:13px;font-weight:800}
+    .breakdown-bar{
+      height:10px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.05);
+      border:1px solid var(--line);
+    }
+    .breakdown-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,var(--blue),var(--blue2));
+    }
+    .breakdown-value{
+      font-size:12px;
+      color:var(--muted);
+      text-align:right;
+      font-weight:800;
+    }
+
+    .section-view{display:none}
+    .section-view.active{display:block}
+    .footer-note{
+      margin-top:18px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+
+    @media (max-width:1150px){
+      .hero,.layout{grid-template-columns:1fr}
+      .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media (max-width:760px){
+      .app{grid-template-columns:1fr}
+      .sidebar{
+        position:relative;
+        height:auto;
+      }
+      .layout,.hero{grid-template-columns:1fr}
+      .kpi-grid,.risk-grid,.mini-grid{grid-template-columns:1fr}
+      .breakdown-row{grid-template-columns:1fr}
+      .message{max-width:100%}
+      .main{padding:18px}
     }
   </style>
 </head>
-
 <body>
-  <div class="nav">
-    <div class="navinner">
-      <div class="brand">
-        <img src="./playsentinel-logo.svg" alt="PlaySentinel Logo">
-        <div class="brandText">
-          <div class="name">PLAY <b>SENTINEL</b></div>
-          <div class="tag" data-i18n="brand.tag">Real-Time Safety Intelligence for Multiplayer Games</div>
-        </div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand-wrap">
+        <div class="logo"><img src="playsentinel-logo.svg" alt="PlaySentinel Logo"></div>
+        <div class="brand-name">PlaySentinel</div>
+        <div class="brand-sub">AI safety engine for multiplayer game chats.</div>
       </div>
 
-      <div class="navlinks" aria-label="Primary navigation">
-        <a href="#features" data-i18n="nav.features">Features</a>
-        <a href="#how" data-i18n="nav.how">How it works</a>
-        <a href="#demo" data-i18n="nav.demo">Demo</a>
-        <a href="#pricing" data-i18n="nav.pricing">Pricing</a>
-        <a href="#api" data-i18n="nav.api">API</a>
-        <a href="#faq" data-i18n="nav.faq">FAQ</a>
-        <a href="#impressum" data-i18n="nav.imprint">Impressum</a>
-        <a href="#datenschutz" data-i18n="nav.privacy">Datenschutz</a>
-      </div>
-
-      <div class="navRight">
-        <label class="sr-only" for="langSelect">Language</label>
-        <select class="lang" id="langSelect" aria-label="Language">
-          <option value="de">DE</option>
-          <option value="en">EN</option>
-        </select>
-
-        <a class="btn docs" href="http://localhost:8000/docs" target="_blank" rel="noreferrer" data-i18n="nav.apidocs">API Docs</a>
-
-        <button class="hamburger" id="hamb" aria-label="Open menu" aria-expanded="false" aria-controls="mobileMenu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 7h16M4 12h16M4 17h16"/>
-          </svg>
+      <div class="nav">
+        <button class="nav-btn active" data-view="analysis">
+          <span class="nav-icon">⌂</span>
+          <span class="nav-label">
+            <span class="nav-title">Live Analysis</span>
+            <span class="nav-sub">Chat, score, signals</span>
+          </span>
         </button>
+        <button class="nav-btn" data-view="engine">
+          <span class="nav-icon">⚑</span>
+          <span class="nav-label">
+            <span class="nav-title">Detection Engine</span>
+            <span class="nav-sub">Why it was flagged</span>
+          </span>
+        </button>
+        <button class="nav-btn" data-view="response">
+          <span class="nav-icon">✓</span>
+          <span class="nav-label">
+            <span class="nav-title">Moderation Response</span>
+            <span class="nav-sub">What happens next</span>
+          </span>
+        </button>
+      </div>
 
-        <div class="mobileMenu" id="mobileMenu" role="dialog" aria-label="Mobile menu">
-          <div class="row">
-            <div class="muted" style="font-weight:900" data-i18n="menu.title">Menü</div>
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-              <label class="sr-only" for="langSelectMobile">Language</label>
-              <select class="lang" id="langSelectMobile" aria-label="Language">
-                <option value="de">DE</option>
-                <option value="en">EN</option>
-              </select>
-              <a class="btn" style="height:42px" href="http://localhost:8000/docs" target="_blank" rel="noreferrer" data-i18n="nav.apidocs">API Docs</a>
+      <div class="side-card">
+        <strong>Pitch flow</strong>
+        1. Show a preset scenario.<br>
+        2. Paste a custom chat.<br>
+        3. Explain the signals.<br>
+        4. Show the moderation outcome.
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="hero">
+        <div class="hero-card">
+          <div class="badge">PlaySentinel • AI Safety Engine for Multiplayer Game Chats</div>
+          <h1>Turn risky game chat into clear safety decisions.</h1>
+          <div class="hero-copy">
+            PlaySentinel analyzes multiplayer game chat for grooming, scams, secrecy requests, and private-channel migration. This demo is designed to make the buyer value instantly clear: risky chat in, explainable safety output out, moderation action next.
+          </div>
+
+          <div class="hero-points">
+            <div class="hero-point"><strong>Live analysis:</strong> run curated scenarios or paste your own chat examples.</div>
+            <div class="hero-point"><strong>Explainable output:</strong> surface the exact signals behind the score instead of showing a black-box label only.</div>
+            <div class="hero-point"><strong>Operational value:</strong> connect detection to warning flows, reviewer queues, and contact restrictions.</div>
+          </div>
+
+          <div class="hero-actions">
+            <button class="btn primary" id="analyzeBtn">Analyze Current View</button>
+            <button class="btn secondary" id="randomBtn">Random Preset</button>
+          </div>
+        </div>
+
+        <div class="hero-card hero-side">
+          <div class="mini-title">What this demo proves</div>
+          <div class="big-line">Product, not just model</div>
+          <div class="small-copy">
+            This demo is built to make the buyer story obvious: chat in, explainable risk out, moderation action next.
+          </div>
+
+          <div class="mini-box">
+            <div class="mini-title">Primary buyer</div>
+            <strong>Game studios &amp; Trust &amp; Safety teams</strong>
+            <div class="small-copy">Especially multiplayer games and youth-heavy communities.</div>
+          </div>
+
+          <div class="mini-box">
+            <div class="mini-title">Core use cases</div>
+            <strong>Grooming • Scams • Secrecy • Private-platform migration</strong>
+          </div>
+
+          <div class="mini-box">
+            <div class="mini-title">Pitch goal</div>
+            <strong>Make testers instantly understand the value</strong>
+            <div class="small-copy">The next step after this demo is real feedback, not more features.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Core value</div>
+          <div class="kpi-value">Score + Signals + Actions</div>
+          <div class="kpi-note">Detection becomes structured evidence and next-step guidance.</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Demo modes</div>
+          <div class="kpi-value">Preset + Self-Test</div>
+          <div class="kpi-note">Use showcase scenarios or test your own chat samples live.</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Positioning</div>
+          <div class="kpi-value">Child &amp; Player Safety</div>
+          <div class="kpi-note">Focused on high-value multiplayer risk categories.</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Integration path</div>
+          <div class="kpi-value">Frontend + API</div>
+          <div class="kpi-note">Browser demo now, live FastAPI connection when you want it.</div>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="row" id="modeRow"></div>
+        <div class="row" id="scenarioBar"></div>
+        <div class="row">
+          <button class="chip active" id="demoEngineBtn">Demo Engine</button>
+          <button class="chip" id="liveApiBtn">Live API</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="left-col">
+          <div class="section-view active" id="view-analysis">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Live Analysis Workspace</div>
+                  <div class="card-subtitle">Use a pitch preset or paste your own chat sample</div>
+                </div>
+                <div class="legend">
+                  <span><i class="dot" style="background:#73aaff"></i> Target / likely minor</span>
+                  <span><i class="dot" style="background:#ff667b"></i> Sender / risk actor</span>
+                </div>
+              </div>
+              <div class="card-body">
+                <div id="presetView">
+                  <div class="chat-box" id="chatBox"></div>
+                </div>
+
+                <div id="customView" class="hidden">
+                  <textarea id="customInput" placeholder="User: how old are u
+Target: im 13
+User: add me on disocrd
+User: dont tell anyone
+
+or
+
+User: wie alt bist du
+Target: ich bin 13
+User: hast du discord
+User: sag es keinem"></textarea>
+                  <div class="help">
+                    Supported format: each line should start with <strong>User:</strong>, <strong>Sender:</strong>, <strong>Suspect:</strong>, <strong>Target:</strong>, <strong>Victim:</strong>, or <strong>Player:</strong>. Demo Engine supports English + German patterns, slang like <strong>u</strong> and <strong>dc</strong>, plus basic typo tolerance.
+                  </div>
+                  <div class="input-actions">
+                    <button class="btn primary" id="analyzeCustomBtn">Analyze Custom Chat</button>
+                    <button class="btn secondary" id="loadPresetIntoCustomBtn">Load Current Preset into Custom</button>
+                    <button class="btn secondary" id="clearCustomBtn">Clear</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Explainable Output</div>
+                  <div class="card-subtitle">The main proof that this is a usable safety product</div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="tabs">
+                  <button class="tab active" data-panel="signals">Signals</button>
+                  <button class="tab" data-panel="actions">Actions</button>
+                  <button class="tab" data-panel="score">Score Breakdown</button>
+                </div>
+
+                <div class="panel active" id="panel-signals">
+                  <div class="stack" id="signalsList"></div>
+                </div>
+
+                <div class="panel" id="panel-actions">
+                  <div class="stack" id="actionsList"></div>
+                </div>
+
+                <div class="panel" id="panel-score">
+                  <div class="breakdown-list" id="breakdownList"></div>
+                  <div class="footer-note">This is the buyer story in one place: the chat becomes risk evidence and a moderation response.</div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <a href="#features" data-i18n="nav.features">Features</a>
-          <a href="#how" data-i18n="nav.how">How it works</a>
-          <a href="#demo" data-i18n="nav.demo">Demo</a>
-          <a href="#pricing" data-i18n="nav.pricing">Pricing</a>
-          <a href="#api" data-i18n="nav.api">API</a>
-          <a href="#faq" data-i18n="nav.faq">FAQ</a>
-          <a class="mutedlink" href="#impressum" data-i18n="nav.imprint">Impressum</a>
-          <a class="mutedlink" href="#datenschutz" data-i18n="nav.privacy">Datenschutz</a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="wrap">
-    <section class="hero" id="top">
-      <div class="card">
-        <h1 data-i18n="hero.h1">Detect grooming risk in game chats — in real time.</h1>
-
-        <div class="sub" data-i18n-html="hero.sub">
-          PlaySentinel ist eine session-aware Safety Engine. Sie bewertet Nachrichten, verfolgt kumulatives Gesprächsrisiko
-          und liefert erklärbare Stages: <b>Trust → Info → Isolation → Grooming</b>.
-        </div>
-
-        <div class="cta">
-          <a class="btn primary" href="#demo" data-i18n="hero.cta.demo">▶ View demo</a>
-          <a class="btn" href="#api" data-i18n="hero.cta.copy">Copy API example</a>
-          <a class="btn" href="#how" data-i18n="hero.cta.how">How it works</a>
-        </div>
-
-        <div class="pills">
-          <div class="pill" data-i18n="hero.pill.lang">✅ German + English</div>
-          <div class="pill" data-i18n="hero.pill.session">✅ Session context (user → target)</div>
-          <div class="pill" data-i18n="hero.pill.explain">✅ Explainable output</div>
-          <div class="pill" data-i18n="hero.pill.ratelimit">✅ API key + rate limiting</div>
-        </div>
-
-        <div class="grid3">
-          <div class="mini">
-            <div class="iconRow">
-              <div class="ico" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M4 7h16M4 12h16M4 17h10"/>
-                </svg>
+          <div class="section-view" id="view-engine">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Detection Engine</div>
+                  <div class="card-subtitle">How PlaySentinel thinks about risky conversations</div>
+                </div>
               </div>
+              <div class="card-body">
+                <div class="stack" id="signalsFocusList"></div>
+                <div class="footer-note">
+                  PlaySentinel does not rely on one opaque label. It looks for concrete patterns like age probing, secrecy, off-platform movement, trust building, urgency, and scam markers.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-view" id="view-response">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Moderation Response</div>
+                  <div class="card-subtitle">What a platform could do after detection</div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="stack" id="actionsFocusList"></div>
+                <div class="footer-note">
+                  This is where PlaySentinel becomes operational: warning flows, reviewer queues, safety escalation, and contact restrictions.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right-col">
+          <div class="card">
+            <div class="card-header">
               <div>
-                <b data-i18n="hero.mini1.title">API-first</b>
-                <div class="muted" data-i18n="hero.mini1.text">Integrates into any backend. Results are immediately actionable.</div>
+                <div class="card-title">Session Risk Overview</div>
+                <div class="card-subtitle">High-level output for a live product demo</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="risk-grid">
+                <div class="stat">
+                  <div class="stat-label">Risk Level</div>
+                  <div id="riskBadge" class="risk-pill risk-low">Low Risk</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Conversation Score</div>
+                  <div id="scoreValue" class="stat-value">0</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Stage</div>
+                  <div id="stageValue" class="stat-value">Normal</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Confidence</div>
+                  <div id="confidenceValue" class="stat-value">0%</div>
+                </div>
+              </div>
+
+              <div class="meter-wrap">
+                <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+                <div class="meter-scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
               </div>
             </div>
           </div>
 
-          <div class="mini">
-            <div class="iconRow">
-              <div class="ico" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2l4 8 8 2-6 6 2 8-8-4-8 4 2-8-6-6 8-2z"/>
-                </svg>
-              </div>
+          <div class="card">
+            <div class="card-header">
               <div>
-                <b data-i18n="hero.mini2.title">Stages, not just keywords</b>
-                <div class="muted" data-i18n="hero.mini2.text">Detects conversation progression over time (session risk).</div>
+                <div class="card-title">Buyer Snapshot</div>
+                <div class="card-subtitle">What matters most in one glance</div>
               </div>
+            </div>
+            <div class="card-body">
+              <div class="mini-grid">
+                <div class="mini">
+                  <div class="mini-label">Primary Threat</div>
+                  <div class="mini-value" id="threatValue">Safe</div>
+                </div>
+                <div class="mini">
+                  <div class="mini-label">Signals Hit</div>
+                  <div class="mini-value" id="signalsHitValue">0</div>
+                </div>
+                <div class="mini">
+                  <div class="mini-label">Escalation</div>
+                  <div class="mini-value" id="escalationValue">None</div>
+                </div>
+              </div>
+              <div class="summary-box" id="summaryText">No suspicious behavior detected in this session.</div>
             </div>
           </div>
 
-          <div class="mini">
-            <div class="iconRow">
-              <div class="ico" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 1a7 7 0 017 7c0 7-7 14-7 14S5 15 5 8a7 7 0 017-7z"/>
-                  <path d="M12 8v4"/>
-                  <path d="M12 16h.01"/>
-                </svg>
-              </div>
+          <div class="card">
+            <div class="card-header">
               <div>
-                <b data-i18n="hero.mini3.title">Privacy options</b>
-                <div class="muted" data-i18n="hero.mini3.text">Optionally log incidents as hashes (no plain text storage).</div>
+                <div class="card-title">Engine Settings</div>
+                <div class="card-subtitle">Browser demo now, backend later</div>
+              </div>
+            </div>
+            <div class="card-body">
+              <label class="summary-box" for="apiUrlInput" style="display:block;margin:0 0 8px 0;">API Endpoint</label>
+              <input id="apiUrlInput" type="text" value="https://playsentinel.onrender.com/v1/demo/analyze" />
+              <div class="summary-box" id="apiStatus" style="margin-top:10px;">
+                Demo Engine is active. Live API mode will POST parsed chat messages to the endpoint above.
+              </div>
+              <div class="footer-note">
+                Public demo mode sends a merged transcript as <strong>message</strong> plus demo user and target IDs.
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="tag" data-i18n="right.tag">What you get</div>
-
-        <div class="mini" style="margin-top:10px">
-          <b data-i18n="right.r1.title">Risk score + risk level</b>
-          <div class="muted" data-i18n="right.r1.text">score, conversation_risk, SAFE/LOW/MEDIUM/HIGH/CRITICAL</div>
-        </div>
-
-        <div class="mini" style="margin-top:10px">
-          <b data-i18n="right.r2.title">Categories + matched patterns</b>
-          <div class="muted" data-i18n="right.r2.text">platform_switch, secrecy, trust_building…</div>
-        </div>
-
-        <div class="mini" style="margin-top:10px">
-          <b data-i18n="right.r3.title">Stage detection</b>
-          <div class="muted" data-i18n="right.r3.text">TRUST_BUILDING → INFO_GATHERING → ISOLATION → GROOMING</div>
-        </div>
-
-        <div class="hr"></div>
-
-        <div class="mini">
-          <b data-i18n="right.score.title">How is the score calculated?</b>
-          <div class="muted" data-i18n-html="right.score.text">
-            Each message increases the <b>message score</b> based on signals like:
-            age questions, platform switching, secrecy, gifts & trust-building.
-            <b>conversation_risk</b> is the cumulative sum across the session.
-          </div>
-          <div class="timeline">
-            <div class="step"><span class="dot green"></span><div><b data-i18n="right.t1.title">Trust</b><div class="muted" data-i18n="right.t1.text">Compliments, closeness</div></div></div>
-            <div class="step"><span class="dot"></span><div><b data-i18n="right.t2.title">Info</b><div class="muted" data-i18n="right.t2.text">Age, alone?</div></div></div>
-            <div class="step"><span class="dot yellow"></span><div><b data-i18n="right.t3.title">Isolation</b><div class="muted" data-i18n="right.t3.text">Discord/Snap</div></div></div>
-            <div class="step"><span class="dot red"></span><div><b data-i18n="right.t4.title">Grooming</b><div class="muted" data-i18n="right.t4.text">Secrecy, gifts</div></div></div>
-          </div>
-          <div class="note" style="margin-top:8px" data-i18n="right.note">
-            MVP note: production → Redis/DB sessions, monitoring, better datasets/ML.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="features" class="section">
-      <h2 data-i18n="features.h2">Features</h2>
-      <div class="split">
-        <div class="card">
-          <h3 style="margin:0 0 8px 0" data-i18n="features.f1.title">Session-based risk scoring</h3>
-          <div class="muted" data-i18n="features.f1.text">
-            Harmful conversations often escalate slowly. PlaySentinel keeps context per (user_id → target_id)
-            and calculates cumulative risk.
-          </div>
-          <div style="height:10px"></div>
-          <div class="mini">
-            <b data-i18n="features.f1.mini.title">Explainability</b>
-            <div class="muted" data-i18n="features.f1.mini.text">Categories + matched patterns help moderators decide.</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3 style="margin:0 0 8px 0" data-i18n="features.f2.title">Normalization</h3>
-          <div class="muted" data-i18n-html="features.f2.text">
-            Detects obfuscation/aliases like <b>dc/discord</b>, <b>sc/snap/sn4p</b>, etc.
-          </div>
-          <div style="height:10px"></div>
-          <div class="mini">
-            <b data-i18n="features.f2.mini.title">Rate-limited API</b>
-            <div class="muted" data-i18n="features.f2.mini.text">API key auth + throttling for MVP deployments.</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="how" class="section split">
-      <div class="card">
-        <h2 data-i18n="how.h2">How it works</h2>
-        <div class="muted" data-i18n-html="how.text">
-          Send a message to <b>/v1/analyze</b>. PlaySentinel normalizes text, matches patterns,
-          updates the session, and returns score, stage, and reasons.
-        </div>
-        <div style="height:12px"></div>
-        <div class="mini">
-          <b data-i18n="how.out.title">Example output (short)</b>
-          <div class="muted" data-i18n="how.out.text">risk_level + stage + reasons → usable directly for actions.</div>
-        </div>
-      </div>
-      <div class="card">
-        <h2 data-i18n="how.sample.title">Sample escalation</h2>
-        <div class="muted" data-i18n="how.sample.text">Example escalation (stage & risk rise):</div>
-        <div style="height:10px"></div>
-        <div class="code">You’re very mature for your age.
-How old are you?
-Do you have discord or snap?
-Don’t tell your parents — keep it secret.</div>
-      </div>
-    </section>
-
-    <section id="demo" class="section split">
-      <div class="card">
-        <h2 data-i18n="demo.h2">Live demo</h2>
-        <div class="muted" data-i18n="demo.text">
-          Open the demo UI and send messages. You’ll see score, risk_level, stage, categories, and matched patterns.
-        </div>
-        <div class="cta" style="margin-top:12px">
-          <a class="btn green" href="https://plutodzn.github.io/PlaySentinel-Demo/" data-i18n="demo.open">Open demo UI</a>
-          <a class="btn" href="http://localhost:8000/v1/health" target="_blank" rel="noreferrer" data-i18n="demo.health">API health</a>
-        </div>
-        <div class="note" style="margin-top:12px" data-i18n-html="demo.note">
-          Local: API on <b>8000</b> + website/demo on <b>5500</b>.
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 data-i18n="demo.quick.title">Quick checks</h2>
-        <div class="muted" data-i18n="demo.quick.text">
-          To test escalation, send multiple messages with the same user_id/target_id → conversation_risk increases.
-        </div>
-        <div style="height:10px"></div>
-        <div class="mini">
-          <b data-i18n="demo.quick.mini.title">Recommended test</b>
-          <div class="muted" data-i18n="demo.quick.mini.text">Trust → Age → Platform switch → Secrecy → Gift</div>
-        </div>
-      </div>
-    </section>
-
-    <section id="pricing" class="section">
-      <h2 data-i18n="pricing.h2">Pricing (starter)</h2>
-      <div class="muted" data-i18n="pricing.sub">Placeholder pricing to start conversations. Pilot feedback defines real pricing.</div>
-      <div style="height:10px"></div>
-
-      <div class="pricing">
-        <div class="card price">
-          <h3>Indie</h3>
-          <div class="pnum">€29<span style="font-size:14px;font-weight:850;color:var(--muted)" data-i18n="pricing.mo">/mo</span></div>
-          <div class="muted" data-i18n="pricing.indie.sub">Prototypes & small games</div>
-          <ul>
-            <li data-i18n="pricing.indie.li1">API access</li>
-            <li data-i18n="pricing.indie.li2">Basic limits</li>
-            <li data-i18n="pricing.indie.li3">Email support</li>
-          </ul>
-        </div>
-
-        <div class="card price" style="border-color:rgba(59,130,246,.28)">
-          <div class="tag" data-i18n="pricing.popular">Most popular</div>
-          <h3>Pro</h3>
-          <div class="pnum">€99<span style="font-size:14px;font-weight:850;color:var(--muted)" data-i18n="pricing.mo">/mo</span></div>
-          <div class="muted" data-i18n="pricing.pro.sub">Live games & communities</div>
-          <ul>
-            <li data-i18n="pricing.pro.li1">Higher limits</li>
-            <li data-i18n="pricing.pro.li2">Session exports</li>
-            <li data-i18n="pricing.pro.li3">Priority support</li>
-          </ul>
-        </div>
-
-        <div class="card price">
-          <h3>Enterprise</h3>
-          <div class="pnum" data-i18n="pricing.ent.price">Let’s talk</div>
-          <div class="muted" data-i18n="pricing.ent.sub">On-prem / SLA / custom workflows</div>
-          <ul>
-            <li data-i18n="pricing.ent.li1">Custom contract</li>
-            <li data-i18n="pricing.ent.li2">Security review</li>
-            <li data-i18n="pricing.ent.li3">Dedicated support</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section id="api" class="section split">
-      <div class="card">
-        <h2 data-i18n="api.h2">API example</h2>
-        <div class="muted">POST /v1/analyze</div>
-        <div style="height:10px"></div>
-
-        <div class="code">curl -X POST http://localhost:8000/v1/analyze \
-  -H "X-API-Key: test123" \
-  -H "Content-Type: application/json" \
-  -d '{"message":"do you have discord?","user_id":"u1","target_id":"u2"}'</div>
-
-        <div class="note" style="margin-top:10px" data-i18n-html="api.tip">
-          Tip: use consistent <b>user_id</b> and <b>target_id</b> to see session escalation.
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 data-i18n="api.act.title">Response you can act on</h2>
-        <div class="muted" data-i18n="api.act.sub">These fields can directly trigger moderation actions:</div>
-        <div style="height:10px"></div>
-        <div class="mini">
-          <ul style="color:var(--muted);margin:0 0 0 18px">
-            <li data-i18n-html="api.act.li1"><b>score</b>: risk of this message</li>
-            <li data-i18n-html="api.act.li2"><b>conversation_risk</b>: cumulative risk (session)</li>
-            <li data-i18n-html="api.act.li3"><b>risk_level</b>: SAFE / LOW / MEDIUM / HIGH / CRITICAL</li>
-            <li data-i18n-html="api.act.li4"><b>stage</b>: conversation stage</li>
-            <li data-i18n-html="api.act.li5"><b>categories</b>: per-category scores</li>
-            <li data-i18n-html="api.act.li6"><b>matched</b>: matched patterns (explainability)</li>
-            <li data-i18n-html="api.act.li7"><b>reasons</b>: signals (e.g., platform_switch_detected)</li>
-          </ul>
-        </div>
-
-        <div style="height:10px"></div>
-        <div class="mini">
-          <b data-i18n="api.actions.title">Actions (examples)</b>
-          <div class="muted" data-i18n="api.actions.text">
-            Block message • Hide message • Alert moderators • Lock chat • Create incident report
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="faq" class="section faq">
-      <h2>FAQ</h2>
-      <details>
-        <summary data-i18n="faq.q1">Does PlaySentinel store chat messages?</summary>
-        <div class="muted" style="margin-top:8px" data-i18n-html="faq.a1">
-          Logging is optional. You can store hashes instead via <code>SAFEPLAY_LOG_MESSAGES=0</code>.
-        </div>
-      </details>
-      <details>
-        <summary data-i18n="faq.q2">Is this production-ready?</summary>
-        <div class="muted" style="margin-top:8px" data-i18n="faq.a2">
-          It’s an MVP. Production typically needs Redis/DB sessions, monitoring, and better datasets/ML.
-        </div>
-      </details>
-      <details>
-        <summary data-i18n="faq.q3">Unity / Roblox integration?</summary>
-        <div class="muted" style="margin-top:8px" data-i18n="faq.a3">
-          Best approach: call the API from your backend and trigger moderation actions based on the response.
-        </div>
-      </details>
-    </section>
-
-    <section class="section card" id="contact">
-      <h2 data-i18n="contact.h2">Contact</h2>
-      <div class="muted" data-i18n="contact.text">
-        Pilot? Send game/platform, MAU, and chat volume — we’ll set up a trial key.
-      </div>
-      <div class="cta" style="margin-top:12px">
-        <a class="btn primary" href="mailto:play.sentinel@gmx.net?subject=PlaySentinel%20Pilot&body=Hi%2C%0A%0AWe%20want%20to%20pilot%20PlaySentinel.%0A-Game%3A%0A-Platform%3A%0A-MAU%3A%0A-Messages%2Fmonth%3A%0A-Needs%3A%0A%0AThanks!">
-          <span data-i18n="contact.cta">Email for a pilot</span>
-        </a>
-      </div>
-    </section>
-
-    <section id="impressum" class="section card">
-      <h2 data-i18n="imprint.h2">Impressum</h2>
-      <p class="muted" data-i18n="imprint.p1">Information according to § 5 TMG</p>
-
-      <p>
-        <b data-i18n="imprint.operator.label">Operator:</b> <span data-i18n="imprint.operator.value">Name</span><br>
-        <b data-i18n="imprint.address.label">Address:</b> <span data-i18n="imprint.address.value">Street</span><br>
-        <b data-i18n="imprint.email.label">Email:</b> <a href="mailto:play.sentinel@gmx.net">play.sentinel@gmx.net</a><br>
-        <b data-i18n="imprint.phone.label">Phone:</b> <span data-i18n="imprint.phone.value">OPTIONAL</span>
-      </p>
-
-      <p class="muted">
-        <b data-i18n="imprint.liability.title">Liability for content</b><br>
-        <span data-i18n="imprint.liability.text">Content created with care; no guarantee for accuracy or completeness.</span>
-      </p>
-
-      <p class="muted">
-        <b data-i18n="imprint.links.title">Liability for links</b><br>
-        <span data-i18n="imprint.links.text">External links: no liability for third-party content; responsible is the respective provider.</span>
-      </p>
-
-      <p class="muted">
-        <b data-i18n="imprint.copyright.title">Copyright</b><br>
-        <span data-i18n="imprint.copyright.text">Content is subject to copyright. Reproduction only with permission.</span>
-      </p>
-    </section>
-
-    <section id="datenschutz" class="section card">
-      <h2 data-i18n="privacy.h2">Privacy Policy (example)</h2>
-
-      <p class="muted" data-i18n="privacy.s1.title">1. General information</p>
-      <p data-i18n="privacy.s1.text">
-        Protecting your personal data matters to us. This website only presents the PlaySentinel project and does not provide user registration or customer management.
-      </p>
-
-      <p class="muted" data-i18n="privacy.s2.title">2. Controller</p>
-      <p data-i18n-html="privacy.s2.text">
-        Controller under GDPR:<br>
-        <b>Name</b><br>
-        Street<br>
-        PLZ Country<br>
-        Email: play.sentinel@gmx.net
-      </p>
-
-      <p class="muted" data-i18n="privacy.s3.title">3. Server log files</p>
-      <p data-i18n="privacy.s3.text">
-        When you access this site, the web server automatically collects technical information (e.g., IP address, date/time, browser type). This data is only used to deliver the site and is not merged with other sources.
-      </p>
-
-      <p class="muted" data-i18n="privacy.s4.title">4. Contact via email</p>
-      <p data-i18n="privacy.s4.text">
-        If you contact us by email, the data you provide is used exclusively to process your request. It is not shared with third parties.
-      </p>
-
-      <p class="muted" data-i18n="privacy.s5.title">5. API demo</p>
-      <p data-i18n="privacy.s5.text">
-        The demo feature is for testing only. No personal data is stored permanently. Optional technical logs may be collected to improve the system.
-      </p>
-
-      <p class="muted" data-i18n="privacy.s6.title">6. Your rights</p>
-      <p data-i18n="privacy.s6.text">
-        You have the right to access, correct, delete, or restrict processing of your stored data under GDPR at any time.
-      </p>
-
-      <p class="muted" data-i18n="privacy.s7.title">7. Version</p>
-      <p data-i18n="privacy.s7.text">Version: 2026</p>
-
-      <div class="note" data-i18n="privacy.note">
-        Note: This is a template. For legally secure text, use a generator/lawyer.
-      </div>
-    </section>
-
-    <div class="footer">
-      <div>© <span id="y"></span> PlaySentinel — <span data-i18n="footer.tag">Real-Time Safety Intelligence for Multiplayer Games</span>.</div>
-      <div style="display:flex;gap:14px;flex-wrap:wrap">
-        <a href="#impressum" data-i18n="nav.imprint">Impressum</a>
-        <a href="#datenschutz" data-i18n="nav.privacy">Datenschutz</a>
-        <a href="#top" data-i18n="footer.top">Back to top</a>
-      </div>
-    </div>
+      </section>
+    </main>
   </div>
 
   <script>
-    // year
-    document.getElementById("y").textContent = new Date().getFullYear();
+    const modes = [
+      { id: "preset", label: "Preset Mode" },
+      { id: "custom", label: "Custom Input" }
+    ];
 
-    // mobile menu toggle
-    const hamb = document.getElementById("hamb");
-    const menu = document.getElementById("mobileMenu");
-
-    function closeMenu(){
-      menu.style.display = "none";
-      hamb.setAttribute("aria-expanded", "false");
-    }
-    function openMenu(){
-      menu.style.display = "block";
-      hamb.setAttribute("aria-expanded", "true");
-    }
-    function toggleMenu(){
-      const isOpen = menu.style.display === "block";
-      isOpen ? closeMenu() : openMenu();
-    }
-
-    hamb.addEventListener("click", (e) => { e.stopPropagation(); toggleMenu(); });
-    document.addEventListener("click", () => closeMenu());
-    menu.querySelectorAll("a").forEach(a => a.addEventListener("click", () => closeMenu()));
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
-
-    // i18n packs (DE/EN)
-    const i18n = {
-      de: {
-        meta: {
-          title: "PlaySentinel — Real-Time Safety Intelligence for Multiplayer Games",
-          desc: "PlaySentinel erkennt Grooming-Risiko und High-Risk Conversation Patterns in Game-Chats mit Session-Risk Scoring und erklärbaren Stages."
-        },
-        "menu.title":"Menü",
-        "brand.tag":"Real-Time Safety Intelligence for Multiplayer Games",
-
-        "nav.features":"Features",
-        "nav.how":"So funktioniert’s",
-        "nav.demo":"Demo",
-        "nav.pricing":"Preise",
-        "nav.api":"API",
-        "nav.faq":"FAQ",
-        "nav.imprint":"Impressum",
-        "nav.privacy":"Datenschutz",
-        "nav.apidocs":"API Docs",
-
-        "hero.h1":"Erkenne Grooming-Risiko in Game-Chats — in Echtzeit.",
-        "hero.sub":"PlaySentinel ist eine session-aware Safety Engine. Sie bewertet Nachrichten, verfolgt kumulatives Gesprächsrisiko und liefert erklärbare Stages: <b>Trust → Info → Isolation → Grooming</b>.",
-        "hero.cta.demo":"▶ Demo ansehen",
-        "hero.cta.copy":"API Example kopieren",
-        "hero.cta.how":"So funktioniert’s",
-
-        "hero.pill.lang":"✅ Deutsch + Englisch",
-        "hero.pill.session":"✅ Session Context (user → target)",
-        "hero.pill.explain":"✅ Explainable Output",
-        "hero.pill.ratelimit":"✅ API Key + Rate Limiting",
-
-        "hero.mini1.title":"API-first",
-        "hero.mini1.text":"In jedes Backend integrierbar. Ergebnisse direkt für Actions nutzbar.",
-        "hero.mini2.title":"Stages statt nur Keywords",
-        "hero.mini2.text":"Erkennt Gesprächsprogression über Zeit (Session-Risk).",
-        "hero.mini3.title":"Privacy Optionen",
-        "hero.mini3.text":"Incidents optional als Hash loggen (kein Klartext speichern).",
-
-        "right.tag":"What you get",
-        "right.r1.title":"Risk score + risk level",
-        "right.r1.text":"score, conversation_risk, SAFE/LOW/MEDIUM/HIGH/CRITICAL",
-        "right.r2.title":"Categories + matched patterns",
-        "right.r2.text":"plattformwechsel, geheimhaltung, vertrauensaufbau…",
-        "right.r3.title":"Stage detection",
-        "right.r3.text":"TRUST_BUILDING → INFO_GATHERING → ISOLATION → GROOMING",
-
-        "right.score.title":"Wie setzt sich der Score zusammen?",
-        "right.score.text":"Jede Nachricht erhöht den <b>message score</b> über Signale wie: Altersfragen, Plattformwechsel, Geheimhaltung, Geschenke & Trust-Building. Der <b>conversation_risk</b> ist die Summe über die Session.",
-        "right.t1.title":"Trust",
-        "right.t1.text":"Komplimente, Nähe",
-        "right.t2.title":"Info",
-        "right.t2.text":"Alter, allein?",
-        "right.t3.title":"Isolation",
-        "right.t3.text":"Discord/Snap",
-        "right.t4.title":"Grooming",
-        "right.t4.text":"Secrecy, Gifts",
-        "right.note":"MVP note: Produktion → Redis/DB Sessions, Monitoring, bessere Datasets/ML.",
-
-        "features.h2":"Features",
-        "features.f1.title":"Session-based risk scoring",
-        "features.f1.text":"Schädliche Gespräche eskalieren oft schleichend. PlaySentinel hält Kontext pro (user_id → target_id) und berechnet kumulatives Risiko.",
-        "features.f1.mini.title":"Explainability",
-        "features.f1.mini.text":"Categories + matched patterns helfen Mods bei Entscheidungen.",
-        "features.f2.title":"Normalization",
-        "features.f2.text":"Erkennt Obfuscation/Aliases wie <b>dc/discord</b>, <b>sc/snap/sn4p</b>, etc.",
-        "features.f2.mini.title":"Rate-limited API",
-        "features.f2.mini.text":"API Key Auth + Throttling für MVP Deployments.",
-
-        "how.h2":"So funktioniert’s",
-        "how.text":"Du sendest eine Nachricht an <b>/v1/analyze</b>. PlaySentinel normalisiert Text, matched Patterns, aktualisiert die Session und gibt Score, Stage und Gründe zurück.",
-        "how.out.title":"Beispiel-Output (gekürzt)",
-        "how.out.text":"risk_level + stage + reasons → direkt für Actions verwendbar.",
-        "how.sample.title":"Sample escalation",
-        "how.sample.text":"Beispiel einer Eskalation (Stage & Risk steigen):",
-
-        "demo.h2":"Live demo",
-        "demo.text":"Öffne die Demo UI und sende Nachrichten. Du siehst score, risk_level, stage, categories und matched patterns.",
-        "demo.open":"Open demo UI",
-        "demo.health":"API health",
-        "demo.note":"Lokal: API auf <b>8000</b> + Website/Demo auf <b>5500</b>.",
-        "demo.quick.title":"Quick checks",
-        "demo.quick.text":"Wenn du testen willst, sende mehrmals mit selben user_id/target_id → conversation_risk eskaliert.",
-        "demo.quick.mini.title":"Recommended test",
-        "demo.quick.mini.text":"Trust → Age → Platform switch → Secrecy → Gift",
-
-        "pricing.h2":"Pricing (starter)",
-        "pricing.sub":"Platzhalterpreise, um erste Gespräche zu starten. Pilots bestimmen echte Preise.",
-        "pricing.mo":"/mo",
-        "pricing.indie.sub":"Prototypes & kleine Games",
-        "pricing.indie.li1":"API access",
-        "pricing.indie.li2":"Basic limits",
-        "pricing.indie.li3":"Email support",
-        "pricing.popular":"Most popular",
-        "pricing.pro.sub":"Live games & communities",
-        "pricing.pro.li1":"Higher limits",
-        "pricing.pro.li2":"Session exports",
-        "pricing.pro.li3":"Priority support",
-        "pricing.ent.price":"Let’s talk",
-        "pricing.ent.sub":"On-prem / SLA / custom workflows",
-        "pricing.ent.li1":"Custom contract",
-        "pricing.ent.li2":"Security review",
-        "pricing.ent.li3":"Dedicated support",
-
-        "api.h2":"API example",
-        "api.tip":"Tip: konsistente <b>user_id</b> und <b>target_id</b> nutzen, um Session-Eskalation zu sehen.",
-        "api.act.title":"Response you can act on",
-        "api.act.sub":"Das sind Felder, die direkt Moderation-Actions triggern können:",
-        "api.act.li1":"<b>score</b>: Risiko dieser Nachricht",
-        "api.act.li2":"<b>conversation_risk</b>: kumulatives Risiko (Session)",
-        "api.act.li3":"<b>risk_level</b>: SAFE / LOW / MEDIUM / HIGH / CRITICAL",
-        "api.act.li4":"<b>stage</b>: Conversation Stage",
-        "api.act.li5":"<b>categories</b>: per-category scores",
-        "api.act.li6":"<b>matched</b>: matched patterns (Explainability)",
-        "api.act.li7":"<b>reasons</b>: Gründe/Signale (z.B. platform_switch_detected)",
-        "api.actions.title":"Actions (Beispiele)",
-        "api.actions.text":"Block message • Hide message • Alert moderators • Lock chat • Create incident report",
-
-        "faq.q1":"Speichert PlaySentinel Chat-Nachrichten?",
-        "faq.a1":"Logging ist optional. Du kannst stattdessen Hashes speichern via <code>SAFEPLAY_LOG_MESSAGES=0</code>.",
-        "faq.q2":"Ist das production-ready?",
-        "faq.a2":"Es ist ein MVP. Produktion braucht typischerweise Redis/DB Sessions, Monitoring und bessere Datasets/ML.",
-        "faq.q3":"Unity / Roblox Integration?",
-        "faq.a3":"Idealer Weg: API vom Backend aufrufen und anhand der Response Moderation-Actions auslösen.",
-
-        "contact.h2":"Kontakt",
-        "contact.text":"Pilot? Schick Game/Plattform, MAU und Chat-Volumen — dann können wir eine Trial-Key Setup machen.",
-        "contact.cta":"Email für einen Pilot",
-
-        "imprint.h2":"Impressum",
-        "imprint.p1":"Angaben gemäß § 5 TMG",
-        "imprint.operator.label":"Betreiber:",
-        "imprint.operator.value":"Name",
-        "imprint.address.label":"Anschrift:",
-        "imprint.address.value":"Street",
-        "imprint.email.label":"E-Mail:",
-        "imprint.phone.label":"Telefon:",
-        "imprint.phone.value":"OPTIONAL",
-        "imprint.liability.title":"Haftung für Inhalte",
-        "imprint.liability.text":"Inhalte wurden mit Sorgfalt erstellt. Für Aktualität/Vollständigkeit keine Gewähr.",
-        "imprint.links.title":"Haftung für Links",
-        "imprint.links.text":"Externe Links: keine Haftung für Inhalte Dritter; verantwortlich ist der jeweilige Anbieter.",
-        "imprint.copyright.title":"Urheberrecht",
-        "imprint.copyright.text":"Inhalte unterliegen dem Urheberrecht. Vervielfältigung nur mit Zustimmung.",
-
-        "privacy.h2":"Datenschutzerklärung (Beispiel)",
-        "privacy.s1.title":"1. Allgemeine Hinweise",
-        "privacy.s1.text":"Der Schutz Ihrer personenbezogenen Daten ist uns wichtig. Diese Website dient ausschließlich der Präsentation des Projekts „PlaySentinel“ und stellt keine aktive Benutzerregistrierung oder Kundenverwaltung bereit.",
-        "privacy.s2.title":"2. Verantwortlicher",
-        "privacy.s2.text":"Verantwortlich im Sinne der DSGVO:<br><b>Name</b><br>Street<br>PLZ Country<br>E-Mail: play.sentinel@gmx.net",
-        "privacy.s3.title":"3. Server-Logfiles",
-        "privacy.s3.text":"Beim Aufruf dieser Website werden automatisch Informationen durch den Webserver erfasst (z. B. IP-Adresse, Datum und Uhrzeit, Browsertyp). Diese Daten dienen ausschließlich der technischen Bereitstellung der Website. Eine Zusammenführung dieser Daten mit anderen Datenquellen erfolgt nicht.",
-        "privacy.s4.title":"4. Kontaktaufnahme per E-Mail",
-        "privacy.s4.text":"Wenn Sie uns per E-Mail kontaktieren, werden die von Ihnen übermittelten Daten ausschließlich zur Bearbeitung Ihrer Anfrage verwendet. Eine Weitergabe an Dritte erfolgt nicht.",
-        "privacy.s5.title":"5. API-Demo",
-        "privacy.s5.text":"Die Demo-Funktion dient ausschließlich zu Testzwecken. Es werden keine personenbezogenen Daten dauerhaft gespeichert. Optional können technische Logs zur Verbesserung des Systems erfasst werden.",
-        "privacy.s6.title":"6. Ihre Rechte",
-        "privacy.s6.text":"Sie haben jederzeit das Recht auf Auskunft, Berichtigung, Löschung oder Einschränkung der Verarbeitung Ihrer gespeicherten Daten gemäß DSGVO.",
-        "privacy.s7.title":"7. Stand",
-        "privacy.s7.text":"Stand: 2026",
-        "privacy.note":"Hinweis: Das ist eine Vorlage. Für rechtssichere Texte bitte Generator/Anwalt nutzen.",
-
-        "footer.tag":"Real-Time Safety Intelligence for Multiplayer Games",
-        "footer.top":"Nach oben"
+    const presetScenarios = [
+      {
+        id: "safe",
+        label: "Safe Conversation",
+        threat: "Safe",
+        score: 8,
+        confidence: 94,
+        stage: "Normal",
+        escalation: "None",
+        summary: "Conversation appears benign. No clear manipulative, exploitative, or off-platform risk indicators were detected.",
+        transcript: [
+          { role: "target", name: "Player A", text: "gg that last round was actually fun" },
+          { role: "sender", name: "Player B", text: "fr you carried the endgame lol" },
+          { role: "target", name: "Player A", text: "nah no way, your build was better" },
+          { role: "sender", name: "Player B", text: "wanna queue one more?" },
+          { role: "target", name: "Player A", text: "yeah invite me after this" }
+        ],
+        signals: [
+          { name: "Benign small talk", score: "+0", desc: "Normal game-related social interaction with no pressure or secrecy indicators." },
+          { name: "No off-platform move", score: "+0", desc: "No attempt to move the target to private channels or external apps." },
+          { name: "No boundary testing", score: "+0", desc: "No sexualized, age-focused, manipulative, or exploitative language present." }
+        ],
+        actions: [
+          { name: "No intervention needed", desc: "Keep session available for standard logging and future model evaluation only." },
+          { name: "Passive monitoring", desc: "Continue standard session-level monitoring without user-facing friction." }
+        ],
+        breakdown: {
+          "Age Questions": 0,
+          "Platform Move": 0,
+          "Gifts / Rewards": 1,
+          "Secrecy": 0,
+          "Trust Building": 4,
+          "Boundary Testing": 0,
+          "Urgency / Pressure": 0,
+          "Scam Markers": 3
+        }
       },
-      en: {
-        meta: {
-          title: "PlaySentinel — Real-Time Safety Intelligence for Multiplayer Games",
-          desc: "PlaySentinel detects grooming risk and high-risk conversation patterns in game chats with session risk scoring and explainable stages."
-        },
-        "menu.title":"Menu",
-        "brand.tag":"Real-Time Safety Intelligence for Multiplayer Games",
+      {
+        id: "scam",
+        label: "Scam Attempt",
+        threat: "Scam",
+        score: 71,
+        confidence: 89,
+        stage: "Extraction",
+        escalation: "High",
+        summary: "The sender is attempting to create urgency and direct the target toward a likely account or item scam path.",
+        transcript: [
+          { role: "sender", name: "TraderX", text: "yo i can duplicate your rare skin if you want" },
+          { role: "target", name: "Player A", text: "really?" },
+          { role: "sender", name: "TraderX", text: "yeah but be quick because the glitch gets patched tonight" },
+          { role: "sender", name: "TraderX", text: "send me your login on my site and i do it fast" },
+          { role: "target", name: "Player A", text: "that sounds weird ngl" },
+          { role: "sender", name: "TraderX", text: "bro trust me i already helped 20 people today dont tell mods they disable it" }
+        ],
+        signals: [
+          { name: "Unrealistic reward claim", score: "+22", desc: "Promises a special exploit or duplication benefit unlikely to be legitimate." },
+          { name: "Urgency pressure", score: "+16", desc: "Pushes the target to act immediately before supposed patching or closure." },
+          { name: "Credential / off-platform lure", score: "+19", desc: "Attempts to redirect the target to an external site and requests account access." },
+          { name: "Secrecy around moderation", score: "+14", desc: "Discourages reporting or staff visibility, increasing scam confidence." }
+        ],
+        actions: [
+          { name: "Soft block external links", desc: "Restrict link delivery and flag the session for immediate moderator review." },
+          { name: "Warn target in-product", desc: "Display a real-time warning that login sharing and duplication offers are common scam vectors." },
+          { name: "Escalate sender risk", desc: "Increase sender-level risk score across sessions and queue account for investigation." }
+        ],
+        breakdown: {
+          "Age Questions": 0,
+          "Platform Move": 18,
+          "Gifts / Rewards": 14,
+          "Secrecy": 11,
+          "Trust Building": 6,
+          "Boundary Testing": 0,
+          "Urgency / Pressure": 12,
+          "Scam Markers": 10
+        }
+      },
+      {
+        id: "grooming",
+        label: "Grooming Risk",
+        threat: "Grooming",
+        score: 91,
+        confidence: 93,
+        stage: "Isolation / Escalation",
+        escalation: "Critical",
+        summary: "The conversation shows a strong combination of grooming indicators including age probing, secrecy, trust-building, and migration toward more private contact.",
+        transcript: [
+          { role: "sender", name: "ShadowFox", text: "you seem really mature for your age btw how old are you?" },
+          { role: "target", name: "Player A", text: "im 13 why" },
+          { role: "sender", name: "ShadowFox", text: "nah just wondering, you can trust me im not like other people here" },
+          { role: "sender", name: "ShadowFox", text: "dont tell anyone we talk because they always make things weird" },
+          { role: "sender", name: "ShadowFox", text: "do you have discord? its easier there and more private" },
+          { role: "target", name: "Player A", text: "maybe idk" },
+          { role: "sender", name: "ShadowFox", text: "i could gift you something if you add me there first" }
+        ],
+        signals: [
+          { name: "Age probing", score: "+20", desc: "Directly seeks the target's age early in the interaction." },
+          { name: "Accelerated trust-building", score: "+16", desc: "Uses exclusivity and emotional positioning to gain personal trust rapidly." },
+          { name: "Secrecy request", score: "+22", desc: "Encourages keeping the interaction hidden from others." },
+          { name: "Off-platform migration", score: "+18", desc: "Attempts to move communication to a more private channel." },
+          { name: "Gift-based leverage", score: "+15", desc: "Offers a reward in exchange for taking the next step." }
+        ],
+        actions: [
+          { name: "Immediate moderator review", desc: "Queue this session with high priority and attach evidence-level signal summary." },
+          { name: "Child-safety intervention", desc: "Show an in-context safety warning to the likely minor and restrict continued contact." },
+          { name: "Sender containment", desc: "Apply temporary communication limits while account history is reviewed." }
+        ],
+        breakdown: {
+          "Age Questions": 18,
+          "Platform Move": 16,
+          "Gifts / Rewards": 12,
+          "Secrecy": 19,
+          "Trust Building": 13,
+          "Boundary Testing": 5,
+          "Urgency / Pressure": 0,
+          "Scam Markers": 8
+        }
+      }
+    ];
 
-        "nav.features":"Features",
-        "nav.how":"How it works",
-        "nav.demo":"Demo",
-        "nav.pricing":"Pricing",
-        "nav.api":"API",
-        "nav.faq":"FAQ",
-        "nav.imprint":"Imprint",
-        "nav.privacy":"Privacy",
-        "nav.apidocs":"API Docs",
+    let currentMode = "preset";
+    let activeScenario = presetScenarios[2];
+    let engineMode = "demo";
 
-        "hero.h1":"Detect grooming risk in game chats — in real time.",
-        "hero.sub":"PlaySentinel is a session-aware safety engine. It scores messages, tracks cumulative conversation risk, and outputs explainable stages: <b>Trust → Info → Isolation → Grooming</b>.",
-        "hero.cta.demo":"▶ View demo",
-        "hero.cta.copy":"Copy API example",
-        "hero.cta.how":"How it works",
+    const modeRow = document.getElementById("modeRow");
+    const scenarioBar = document.getElementById("scenarioBar");
+    const presetView = document.getElementById("presetView");
+    const customView = document.getElementById("customView");
+    const customInput = document.getElementById("customInput");
+    const chatBox = document.getElementById("chatBox");
+    const riskBadge = document.getElementById("riskBadge");
+    const scoreValue = document.getElementById("scoreValue");
+    const stageValue = document.getElementById("stageValue");
+    const confidenceValue = document.getElementById("confidenceValue");
+    const threatValue = document.getElementById("threatValue");
+    const signalsHitValue = document.getElementById("signalsHitValue");
+    const escalationValue = document.getElementById("escalationValue");
+    const summaryText = document.getElementById("summaryText");
+    const meterFill = document.getElementById("meterFill");
+    const signalsList = document.getElementById("signalsList");
+    const actionsList = document.getElementById("actionsList");
+    const breakdownList = document.getElementById("breakdownList");
+    const signalsFocusList = document.getElementById("signalsFocusList");
+    const actionsFocusList = document.getElementById("actionsFocusList");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const randomBtn = document.getElementById("randomBtn");
+    const analyzeCustomBtn = document.getElementById("analyzeCustomBtn");
+    const loadPresetIntoCustomBtn = document.getElementById("loadPresetIntoCustomBtn");
+    const clearCustomBtn = document.getElementById("clearCustomBtn");
+    const demoEngineBtn = document.getElementById("demoEngineBtn");
+    const liveApiBtn = document.getElementById("liveApiBtn");
+    const apiUrlInput = document.getElementById("apiUrlInput");
+    const apiStatus = document.getElementById("apiStatus");
 
-        "hero.pill.lang":"✅ German + English",
-        "hero.pill.session":"✅ Session context (user → target)",
-        "hero.pill.explain":"✅ Explainable output",
-        "hero.pill.ratelimit":"✅ API key + rate limiting",
-
-        "hero.mini1.title":"API-first",
-        "hero.mini1.text":"Integrates into any backend. Results are immediately actionable.",
-        "hero.mini2.title":"Stages, not just keywords",
-        "hero.mini2.text":"Detects conversation progression over time (session risk).",
-        "hero.mini3.title":"Privacy options",
-        "hero.mini3.text":"Optionally log incidents as hashes (no plain text storage).",
-
-        "right.tag":"What you get",
-        "right.r1.title":"Risk score + risk level",
-        "right.r1.text":"score, conversation_risk, SAFE/LOW/MEDIUM/HIGH/CRITICAL",
-        "right.r2.title":"Categories + matched patterns",
-        "right.r2.text":"platform_switch, secrecy, trust_building…",
-        "right.r3.title":"Stage detection",
-        "right.r3.text":"TRUST_BUILDING → INFO_GATHERING → ISOLATION → GROOMING",
-
-        "right.score.title":"How is the score calculated?",
-        "right.score.text":"Each message increases the <b>message score</b> based on signals like: age questions, platform switching, secrecy, gifts & trust-building. <b>conversation_risk</b> is the cumulative sum across the session.",
-        "right.t1.title":"Trust",
-        "right.t1.text":"Compliments, closeness",
-        "right.t2.title":"Info",
-        "right.t2.text":"Age, alone?",
-        "right.t3.title":"Isolation",
-        "right.t3.text":"Discord/Snap",
-        "right.t4.title":"Grooming",
-        "right.t4.text":"Secrecy, gifts",
-        "right.note":"MVP note: production → Redis/DB sessions, monitoring, better datasets/ML.",
-
-        "features.h2":"Features",
-        "features.f1.title":"Session-based risk scoring",
-        "features.f1.text":"Harmful conversations often escalate slowly. PlaySentinel keeps context per (user_id → target_id) and calculates cumulative risk.",
-        "features.f1.mini.title":"Explainability",
-        "features.f1.mini.text":"Categories + matched patterns help moderators decide.",
-        "features.f2.title":"Normalization",
-        "features.f2.text":"Detects obfuscation/aliases like <b>dc/discord</b>, <b>sc/snap/sn4p</b>, etc.",
-        "features.f2.mini.title":"Rate-limited API",
-        "features.f2.mini.text":"API key auth + throttling for MVP deployments.",
-
-        "how.h2":"How it works",
-        "how.text":"Send a message to <b>/v1/analyze</b>. PlaySentinel normalizes text, matches patterns, updates the session, and returns score, stage, and reasons.",
-        "how.out.title":"Example output (short)",
-        "how.out.text":"risk_level + stage + reasons → usable directly for actions.",
-        "how.sample.title":"Sample escalation",
-        "how.sample.text":"Example escalation (stage & risk rise):",
-
-        "demo.h2":"Live demo",
-        "demo.text":"Open the demo UI and send messages. You’ll see score, risk_level, stage, categories, and matched patterns.",
-        "demo.open":"Open demo UI",
-        "demo.health":"API health",
-        "demo.note":"Local: API on <b>8000</b> + website/demo on <b>5500</b>.",
-        "demo.quick.title":"Quick checks",
-        "demo.quick.text":"To test escalation, send multiple messages with the same user_id/target_id → conversation_risk increases.",
-        "demo.quick.mini.title":"Recommended test",
-        "demo.quick.mini.text":"Trust → Age → Platform switch → Secrecy → Gift",
-
-        "pricing.h2":"Pricing (starter)",
-        "pricing.sub":"Placeholder pricing to start conversations. Pilot feedback defines real pricing.",
-        "pricing.mo":"/mo",
-        "pricing.indie.sub":"Prototypes & small games",
-        "pricing.indie.li1":"API access",
-        "pricing.indie.li2":"Basic limits",
-        "pricing.indie.li3":"Email support",
-        "pricing.popular":"Most popular",
-        "pricing.pro.sub":"Live games & communities",
-        "pricing.pro.li1":"Higher limits",
-        "pricing.pro.li2":"Session exports",
-        "pricing.pro.li3":"Priority support",
-        "pricing.ent.price":"Let’s talk",
-        "pricing.ent.sub":"On-prem / SLA / custom workflows",
-        "pricing.ent.li1":"Custom contract",
-        "pricing.ent.li2":"Security review",
-        "pricing.ent.li3":"Dedicated support",
-
-        "api.h2":"API example",
-        "api.tip":"Tip: use consistent <b>user_id</b> and <b>target_id</b> to see session escalation.",
-        "api.act.title":"Response you can act on",
-        "api.act.sub":"These fields can directly trigger moderation actions:",
-        "api.act.li1":"<b>score</b>: risk of this message",
-        "api.act.li2":"<b>conversation_risk</b>: cumulative risk (session)",
-        "api.act.li3":"<b>risk_level</b>: SAFE / LOW / MEDIUM / HIGH / CRITICAL",
-        "api.act.li4":"<b>stage</b>: conversation stage",
-        "api.act.li5":"<b>categories</b>: per-category scores",
-        "api.act.li6":"<b>matched</b>: matched patterns (explainability)",
-        "api.act.li7":"<b>reasons</b>: signals (e.g., platform_switch_detected)",
-        "api.actions.title":"Actions (examples)",
-        "api.actions.text":"Block message • Hide message • Alert moderators • Lock chat • Create incident report",
-
-        "faq.q1":"Does PlaySentinel store chat messages?",
-        "faq.a1":"Logging is optional. You can store hashes instead via <code>SAFEPLAY_LOG_MESSAGES=0</code>.",
-        "faq.q2":"Is this production-ready?",
-        "faq.a2":"It’s an MVP. Production typically needs Redis/DB sessions, monitoring, and better datasets/ML.",
-        "faq.q3":"Unity / Roblox integration?",
-        "faq.a3":"Best approach: call the API from your backend and trigger moderation actions based on the response.",
-
-        "contact.h2":"Contact",
-        "contact.text":"Pilot? Send game/platform, MAU, and chat volume — we’ll set up a trial key.",
-        "contact.cta":"Email for a pilot",
-
-        "imprint.h2":"Imprint",
-        "imprint.p1":"Information according to § 5 TMG",
-        "imprint.operator.label":"Operator:",
-        "imprint.operator.value":"Name",
-        "imprint.address.label":"Address:",
-        "imprint.address.value":"Street",
-        "imprint.email.label":"Email:",
-        "imprint.phone.label":"Phone:",
-        "imprint.phone.value":"OPTIONAL",
-        "imprint.liability.title":"Liability for content",
-        "imprint.liability.text":"Content created with care; no guarantee for accuracy or completeness.",
-        "imprint.links.title":"Liability for links",
-        "imprint.links.text":"External links: no liability for third-party content; responsible is the respective provider.",
-        "imprint.copyright.title":"Copyright",
-        "imprint.copyright.text":"Content is subject to copyright. Reproduction only with permission.",
-
-        "privacy.h2":"Privacy Policy (example)",
-        "privacy.s1.title":"1. General information",
-        "privacy.s1.text":"Protecting your personal data matters to us. This website only presents the PlaySentinel project and does not provide user registration or customer management.",
-        "privacy.s2.title":"2. Controller",
-        "privacy.s2.text":"Controller under GDPR:<br><b>Name</b><br>Street<br>PLZ Country<br>Email: play.sentinel@gmx.net",
-        "privacy.s3.title":"3. Server log files",
-        "privacy.s3.text":"When you access this site, the web server automatically collects technical information (e.g., IP address, date/time, browser type). This data is only used to deliver the site and is not merged with other sources.",
-        "privacy.s4.title":"4. Contact via email",
-        "privacy.s4.text":"If you contact us by email, the data you provide is used exclusively to process your request. It is not shared with third parties.",
-        "privacy.s5.title":"5. API demo",
-        "privacy.s5.text":"The demo feature is for testing only. No personal data is stored permanently. Optional technical logs may be collected to improve the system.",
-        "privacy.s6.title":"6. Your rights",
-        "privacy.s6.text":"You have the right to access, correct, delete, or restrict processing of your stored data under GDPR at any time.",
-        "privacy.s7.title":"7. Version",
-        "privacy.s7.text":"Version: 2026",
-        "privacy.note":"Note: This is a template. For legally secure text, use a generator/lawyer.",
-
-        "footer.tag":"Real-Time Safety Intelligence for Multiplayer Games",
-        "footer.top":"Back to top"
+    const DETECTION_GROUPS = {
+      age: {
+        phrases: ["how old are you","how old are u","how old r u","what age are you","your age","mature for your age","wie alt bist du","wie alt","bist du 13","reif fuer dein alter"],
+        regexes: [/\bhow+\s+old+\s+(are|r)\s+(you|u)\b/g,/\bwhat\s+age\s+(are|r)\s+(you|u)\b/g,/\bwie\s+alt\s+bist\s+du\b/g,/\bmature\s+for\s+(your|ur)\s+age\b/g,/\breif\s+f(?:u|ue)r\s+dein\s+alter\b/g]
+      },
+      platform: {
+        phrases: ["discord","dc","snapchat","snap","telegram","whatsapp","instagram","private chat","more private","add me there","schreib mir privat","hast du discord"],
+        regexes: [/\b(discord|discrod|disocrd|dicsord|dc)\b/g,/\b(snap(chat)?|instagram|telegram|whatsapp)\b/g,/\b(dm|pm)\s+me\b/g,/\bprivate\s+(chat|message|dm)\b/g,/\bschreib\s+mir\s+privat\b/g]
+      },
+      gifts: {
+        phrases: ["gift","i can gift you","free robux","robux","skin","reward","ich schenke dir","ich kauf dir","geschenk"],
+        regexes: [/\b(gift|robux|skin|reward|nitro|premium)\b/g,/\b(i\s*(can|could|will|ll)\s*(buy|gift|get)\s+you)\b/g,/\b(ich\s*(schenke|kauf|gebe)\s+dir)\b/g]
+      },
+      secrecy: {
+        phrases: ["dont tell anyone","don't tell anyone","keep this secret","our secret","between us","dont tell your parents","don't tell mods","sag es keinem","erzaehl es niemandem","behalt das fuer dich","niemandem sagen"],
+        regexes: [/\bdon'?t\s+tell\s+(anyone|anybody|your\s+parents|mods?)\b/g,/\bkeep\s+(this|it)\s+secret\b/g,/\bour\s+secret\b/g,/\bbetween\s+us\b/g,/\bsag\s+es\s+keinem\b/g,/\b(erzaehl|erzähl)\s+es\s+niemandem\b/g,/\bbehalt\s+das\s+f(?:u|ue)r\s+dich\b/g]
+      },
+      trust: {
+        phrases: ["trust me","you can trust me","im not like other people","i care about you","you seem mature","vertrau mir","du kannst mir vertrauen"],
+        regexes: [/\btrust\s+me\b/g,/\byou\s+can\s+trust\s+me\b/g,/\bi\s*(am|m)\s+not\s+like\s+other\s+people\b/g,/\b(vertrau\s+mir|du\s+kannst\s+mir\s+vertrauen)\b/g]
+      },
+      pressure: {
+        phrases: ["be quick","right now","do it now","hurry","before its gone","asap","sofort","beeil dich","jetzt sofort","schnell"],
+        regexes: [/\b(be\s+quick|do\s+it\s+now|right\s+now|hurry|asap|fast)\b/g,/\bbefore\s+it'?s\s+gone\b/g,/\b(sofort|beeil\s+dich|jetzt\s+sofort|schnell)\b/g]
+      },
+      scam: {
+        phrases: ["login","password","code","my site","link","verify your account","duplicate","glitch","trade first","send me your login","gib dein passwort","mein link"],
+        regexes: [/\b(login|password|passwort|code|link|glitch|duplicate|duping)\b/g,/\bverify\s+your\s+account\b/g,/\b(my\s+site|my\s+website|mein\s+link|webseite)\b/g,/\btrade\s+first\b/g,/\b(send|schick)\s+(me\s+)?(your\s+)?(login|account|password|passwort)\b/g]
+      },
+      boundary: {
+        phrases: ["send me a picture","send pic","face reveal","show your face","are you alone","cute","hot","schick ein bild","zeig dein gesicht","bist du allein"],
+        regexes: [/\b(send\s+me\s+(a\s+)?(picture|photo|pic)|face\s+reveal|show\s+your\s+face)\b/g,/\b(are\s+you\s+alone|in\s+your\s+bedroom|body\s+pic|cute|hot|sexy)\b/g,/\b(schick\s+(mir\s+)?ein\s+bild|zeig\s+dein\s+gesicht|bist\s+du\s+allein)\b/g]
       }
     };
 
-    function applyLang(lang){
-      const pack = i18n[lang] || i18n.en;
-      document.documentElement.lang = lang;
-      document.title = pack.meta.title;
-      const meta = document.getElementById("metaDesc");
-      if (meta) meta.setAttribute("content", pack.meta.desc);
-
-      document.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n");
-        if (pack[key] != null) el.textContent = pack[key];
-      });
-      document.querySelectorAll("[data-i18n-html]").forEach(el => {
-        const key = el.getAttribute("data-i18n-html");
-        if (pack[key] != null) el.innerHTML = pack[key];
-      });
-
-      try { localStorage.setItem("playsentinel_lang", lang); } catch(e){}
+    function getRiskMeta(score){
+      if(score >= 85) return { label:"Critical Risk", cls:"risk-critical" };
+      if(score >= 60) return { label:"High Risk", cls:"risk-high" };
+      if(score >= 30) return { label:"Medium Risk", cls:"risk-medium" };
+      return { label:"Low Risk", cls:"risk-low" };
     }
 
-    const langSelect = document.getElementById("langSelect");
-    const langSelectMobile = document.getElementById("langSelectMobile");
-
-    let savedLang = null;
-    try { savedLang = localStorage.getItem("playsentinel_lang"); } catch(e){}
-    const browserPref = (navigator.language || "en").toLowerCase().startsWith("de") ? "de" : "en";
-    const initialLang = savedLang || browserPref;
-
-    langSelect.value = initialLang;
-    langSelectMobile.value = initialLang;
-    applyLang(initialLang);
-
-    function setLangFromUI(value){
-      langSelect.value = value;
-      langSelectMobile.value = value;
-      applyLang(value);
+    function renderModes(){
+      modeRow.innerHTML = "";
+      modes.forEach(mode => {
+        const btn = document.createElement("button");
+        btn.className = "chip" + (mode.id === currentMode ? " active" : "");
+        btn.textContent = mode.label;
+        btn.addEventListener("click", () => {
+          currentMode = mode.id;
+          updateModeUI();
+          renderModes();
+        });
+        modeRow.appendChild(btn);
+      });
     }
-    langSelect.addEventListener("change", (e) => setLangFromUI(e.target.value));
-    langSelectMobile.addEventListener("change", (e) => setLangFromUI(e.target.value));
+
+    function renderScenarioButtons(){
+      scenarioBar.innerHTML = "";
+      presetScenarios.forEach(scenario => {
+        const btn = document.createElement("button");
+        btn.className = "chip" + (scenario.id === activeScenario.id ? " active" : "");
+        btn.textContent = scenario.label;
+        btn.addEventListener("click", () => {
+          activeScenario = scenario;
+          renderScenarioButtons();
+          if(currentMode === "preset") renderResult(activeScenario);
+        });
+        scenarioBar.appendChild(btn);
+      });
+    }
+
+    function updateModeUI(){
+      const preset = currentMode === "preset";
+      presetView.classList.toggle("hidden", !preset);
+      customView.classList.toggle("hidden", preset);
+      scenarioBar.classList.toggle("hidden", !preset);
+      if(preset) renderResult(activeScenario);
+    }
+
+    function renderChat(transcript){
+      chatBox.innerHTML = "";
+      transcript.forEach((entry, index) => {
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+
+        const avatar = document.createElement("div");
+        avatar.className = "avatar " + (entry.role === "sender" ? "sender" : "target");
+        avatar.textContent = entry.role === "sender" ? "S" : "T";
+
+        const message = document.createElement("div");
+        message.className = "message";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `${entry.name} • msg ${index + 1}`;
+        const text = document.createElement("div");
+        text.className = "msg-text";
+        text.textContent = entry.text;
+
+        message.appendChild(meta);
+        message.appendChild(text);
+        bubble.appendChild(avatar);
+        bubble.appendChild(message);
+        chatBox.appendChild(bubble);
+      });
+    }
+
+    function renderItemList(el, items, showScore = true){
+      el.innerHTML = "";
+      items.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+          <div class="item-top">
+            <div class="item-name">${item.name}</div>
+            ${showScore ? `<div class="item-score">${item.score || ""}</div>` : ``}
+          </div>
+          <div class="item-desc">${item.desc}</div>
+        `;
+        el.appendChild(div);
+      });
+    }
+
+    function renderBreakdown(breakdown){
+      breakdownList.innerHTML = "";
+      Object.entries(breakdown).forEach(([name,value]) => {
+        const row = document.createElement("div");
+        row.className = "breakdown-row";
+        row.innerHTML = `
+          <div class="breakdown-name">${name}</div>
+          <div class="breakdown-bar"><div class="breakdown-fill" style="width:${Math.min(value * 5, 100)}%"></div></div>
+          <div class="breakdown-value">${value}</div>
+        `;
+        breakdownList.appendChild(row);
+      });
+    }
+
+    function renderResult(result){
+      if(result.transcript) renderChat(result.transcript);
+
+      const risk = getRiskMeta(result.score);
+      riskBadge.className = `risk-pill ${risk.cls}`;
+      riskBadge.textContent = risk.label;
+      scoreValue.textContent = result.score;
+      stageValue.textContent = result.stage;
+      confidenceValue.textContent = `${result.confidence}%`;
+      threatValue.textContent = result.threat;
+      signalsHitValue.textContent = result.signals.length;
+      escalationValue.textContent = result.escalation;
+      summaryText.textContent = result.summary;
+      meterFill.style.width = `${result.score}%`;
+
+      renderItemList(signalsList, result.signals, true);
+      renderItemList(actionsList, result.actions, false);
+      renderBreakdown(result.breakdown || {});
+      renderItemList(signalsFocusList, result.signals, true);
+      renderItemList(actionsFocusList, result.actions, false);
+    }
+
+    function transcriptToCustomText(transcript){
+      return transcript.map(msg => `${msg.role === "sender" ? "User" : "Target"}: ${msg.text}`).join("\n");
+    }
+
+    function parseCustomInput(text){
+      const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
+      const messages = [];
+      for(const line of lines){
+        const match = line.match(/^(user|sender|suspect|player|target|victim)\s*:\s*(.+)$/i);
+        if(!match) continue;
+        const speaker = match[1].toLowerCase();
+        const content = match[2].trim();
+        const role = ["target","victim"].includes(speaker) ? "target" : "sender";
+        messages.push({ role, name: role === "sender" ? "Custom User" : "Custom Target", text: content });
+      }
+      return messages;
+    }
+
+    function buildSignal(name, score, desc){ return { name, score:`+${score}`, desc }; }
+    function buildAction(name, desc){ return { name, desc }; }
+
+    function normalizeForDetection(text){
+      let t = String(text || "").toLowerCase();
+      t = t
+        .replace(/[ä]/g,"ae").replace(/[ö]/g,"oe").replace(/[ü]/g,"ue").replace(/[ß]/g,"ss")
+        .replace(/[’`]/g,"'")
+        .replace(/[_\-./,!?;:()[\]{}"]/g," ")
+        .replace(/(.)\1{2,}/g,"$1$1");
+
+      [
+        [/\bim\b/g,"i am"], [/\bi'm\b/g,"i am"], [/\bu\b/g,"you"], [/\br\b/g,"are"],
+        [/\bur\b/g,"your"], [/\bdc\b/g,"discord"], [/\bdiscrod\b|\bdisocrd\b|\bdicsord\b|\bdisord\b/g,"discord"],
+        [/\bsnap\b/g,"snapchat"], [/\binsta\b/g,"instagram"], [/\bdont\b/g,"don't"],
+        [/\bpasswort\b/g,"password"], [/\blog in\b/g,"login"], [/\bgeschenk\b/g,"gift"],
+        [/\bprivat\b/g,"private"], [/\bschreib\b/g,"write"]
+      ].forEach(([a,b]) => t = t.replace(a,b));
+
+      return ` ${t.replace(/\s+/g," ").trim()} `;
+    }
+
+    function levenshtein(a,b){
+      if(a===b) return 0;
+      if(!a.length) return b.length;
+      if(!b.length) return a.length;
+      const dp = Array.from({length:a.length+1},()=>new Array(b.length+1).fill(0));
+      for(let i=0;i<=a.length;i++) dp[i][0]=i;
+      for(let j=0;j<=b.length;j++) dp[0][j]=j;
+      for(let i=1;i<=a.length;i++){
+        for(let j=1;j<=b.length;j++){
+          const cost = a[i-1] === b[j-1] ? 0 : 1;
+          dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+        }
+      }
+      return dp[a.length][b.length];
+    }
+
+    function fuzzyPhraseCount(normalizedText, phrase, maxDistance = 1){
+      const words = normalizeForDetection(phrase).trim().split(/\s+/).filter(Boolean);
+      const hay = normalizedText.trim().split(/\s+/).filter(Boolean);
+      if(!words.length || !hay.length) return 0;
+
+      let hits = 0;
+      const baseLen = words.length;
+      const candidates = [baseLen, Math.max(1, baseLen - 1), baseLen + 1];
+
+      for(let i=0;i<hay.length;i++){
+        for(const size of candidates){
+          const chunk = hay.slice(i, i + size).join(" ");
+          if(!chunk) continue;
+          if(levenshtein(chunk, words.join(" ")) <= maxDistance){
+            hits++;
+            i += Math.max(0, size - 1);
+            break;
+          }
+        }
+      }
+      return hits;
+    }
+
+    function countSignals(normalizedText, config){
+      let total = 0;
+      (config.phrases || []).forEach(phrase => {
+        const needle = ` ${normalizeForDetection(phrase).trim()} `;
+        if(normalizedText.includes(needle)) total += 1;
+        else total += fuzzyPhraseCount(normalizedText, phrase, phrase.length <= 8 ? 1 : 2);
+      });
+
+      (config.regexes || []).forEach(regex => {
+        const matches = normalizedText.match(regex);
+        if(matches) total += matches.length;
+      });
+
+      return total;
+    }
+
+    function detectMinorTarget(targetTextNormalized){
+      return /\b(i am|im|ich bin)\s*(1[0-7]|[0-9])\b/.test(targetTextNormalized) ||
+             /\b(1[0-7]|[0-9])\s*(years old|yo|jahre alt)\b/.test(targetTextNormalized);
+    }
+
+    function analyzeWithDemoEngine(messages){
+      const senderText = normalizeForDetection(messages.filter(m => m.role === "sender").map(m => m.text).join(" \n "));
+      const targetText = normalizeForDetection(messages.filter(m => m.role === "target").map(m => m.text).join(" \n "));
+
+      const counts = {
+        age: countSignals(senderText, DETECTION_GROUPS.age),
+        platform: countSignals(senderText, DETECTION_GROUPS.platform),
+        gifts: countSignals(senderText, DETECTION_GROUPS.gifts),
+        secrecy: countSignals(senderText, DETECTION_GROUPS.secrecy),
+        trust: countSignals(senderText, DETECTION_GROUPS.trust),
+        pressure: countSignals(senderText, DETECTION_GROUPS.pressure),
+        scam: countSignals(senderText, DETECTION_GROUPS.scam),
+        boundary: countSignals(senderText, DETECTION_GROUPS.boundary)
+      };
+
+      const minorTarget = detectMinorTarget(targetText);
+
+      const breakdown = {
+        "Age Questions": Math.min(counts.age * 7 + (counts.age > 0 && minorTarget ? 6 : 0), 22),
+        "Platform Move": Math.min(counts.platform * 6 + (counts.platform > 0 && counts.secrecy > 0 ? 5 : 0), 20),
+        "Gifts / Rewards": Math.min(counts.gifts * 6, 18),
+        "Secrecy": Math.min(counts.secrecy * 8 + (counts.trust > 0 && counts.secrecy > 0 ? 4 : 0), 22),
+        "Trust Building": Math.min(counts.trust * 6, 18),
+        "Boundary Testing": Math.min(counts.boundary * 7, 20),
+        "Urgency / Pressure": Math.min(counts.pressure * 6 + (counts.scam > 0 && counts.pressure > 0 ? 5 : 0), 18),
+        "Scam Markers": Math.min(counts.scam * 8 + (counts.scam > 0 && counts.pressure > 0 ? 5 : 0), 22)
+      };
+
+      let score = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
+      score = Math.max(0, Math.min(100, score));
+
+      const signals = [];
+      if (breakdown["Age Questions"] > 0) signals.push(buildSignal("Age probing", breakdown["Age Questions"], minorTarget ? "The sender appears to ask about age and the target also looks likely to be a minor." : "The sender appears to ask about or frame the target's age."));
+      if (breakdown["Platform Move"] > 0) signals.push(buildSignal("Off-platform migration", breakdown["Platform Move"], "The sender tries to move the conversation to a more private or external channel, including Discord, Snapchat, DMs, or private chat."));
+      if (breakdown["Gifts / Rewards"] > 0) signals.push(buildSignal("Gift / reward leverage", breakdown["Gifts / Rewards"], "Promises of items, Robux, skins, rewards, or purchases are used to influence the target."));
+      if (breakdown["Secrecy"] > 0) signals.push(buildSignal("Secrecy request", breakdown["Secrecy"], "The conversation contains cues to hide the exchange from others, parents, or moderators."));
+      if (breakdown["Trust Building"] > 0) signals.push(buildSignal("Accelerated trust-building", breakdown["Trust Building"], "The sender tries to build exclusivity or emotional dependence unusually fast."));
+      if (breakdown["Boundary Testing"] > 0) signals.push(buildSignal("Boundary testing", breakdown["Boundary Testing"], "The sender uses personal, appearance-focused, or photo-request language that may push boundaries."));
+      if (breakdown["Urgency / Pressure"] > 0) signals.push(buildSignal("Urgency pressure", breakdown["Urgency / Pressure"], "The target is pushed to act quickly instead of carefully."));
+      if (breakdown["Scam Markers"] > 0) signals.push(buildSignal("Scam markers", breakdown["Scam Markers"], "The transcript includes credentials, links, duplication claims, or account-access style patterns."));
+      if (signals.length === 0) signals.push({ name: "No strong indicators", score: "+0", desc: "No obvious grooming, scam, secrecy, or coercion patterns were detected by the demo engine." });
+
+      const groomingCore = breakdown["Age Questions"] + breakdown["Secrecy"] + breakdown["Trust Building"] + breakdown["Platform Move"] + breakdown["Boundary Testing"];
+      const scamCore = breakdown["Scam Markers"] + breakdown["Urgency / Pressure"] + breakdown["Gifts / Rewards"] + breakdown["Platform Move"];
+
+      let threat = "Safe";
+      if (scamCore >= 26 && breakdown["Scam Markers"] >= 8) threat = "Scam";
+      if ((groomingCore >= 30 && (breakdown["Age Questions"] > 0 || breakdown["Boundary Testing"] > 0)) || (minorTarget && breakdown["Secrecy"] > 0 && breakdown["Platform Move"] > 0)) threat = "Grooming";
+
+      let stage = "Normal";
+      if (score >= 20) stage = "Watchlist";
+      if (score >= 40) stage = "Engagement";
+      if (score >= 60) stage = threat === "Scam" ? "Extraction" : "Escalation";
+      if (score >= 82) stage = threat === "Grooming" ? "Isolation / Escalation" : "Critical";
+
+      let escalation = "None";
+      if (score >= 30) escalation = "Moderate";
+      if (score >= 60) escalation = "High";
+      if (score >= 85) escalation = "Critical";
+
+      const categoriesHit = Object.values(breakdown).filter(v => v > 0).length;
+      const confidence = Math.max(60, Math.min(97, 58 + categoriesHit * 5 + Math.floor(score / 7) + (minorTarget ? 4 : 0)));
+
+      const actions = [];
+      if (score < 30) {
+        actions.push(buildAction("No intervention needed", "Keep the session available for logging, benchmarking, and continued passive monitoring."));
+        actions.push(buildAction("Continue background monitoring", "Track future sessions to see whether any behavioral pattern develops over time."));
+      } else {
+        actions.push(buildAction("Flag session for review", "Attach risk signals and transcript context to help moderation teams review faster."));
+        if (breakdown["Platform Move"] > 0 || breakdown["Secrecy"] > 0) actions.push(buildAction("Limit private contact vectors", "Consider friction or restrictions around private contact, DMs, Discord moves, and other off-platform migration."));
+        if (threat === "Scam") actions.push(buildAction("Warn about credentials and links", "Show an in-product warning if the session contains login, site, trade, code, or duplication language."));
+        if (threat === "Grooming") actions.push(buildAction("Prioritize child-safety workflow", "Escalate for urgent review where age-probing, secrecy, trust-building, private contact, or photo requests appear together."));
+      }
+
+      let summary = "No suspicious behavior detected in this session.";
+      if (score >= 30 && threat === "Safe") summary = "The upgraded demo engine found some cautionary patterns, but not enough evidence to strongly classify this as grooming or scam.";
+      if (threat === "Scam") summary = "The upgraded demo engine found a likely scam pattern based on links, login requests, reward bait, urgency, duplication language, or platform movement.";
+      if (threat === "Grooming") summary = "The upgraded demo engine found a likely grooming pattern based on age probing, secrecy, trust-building, private migration, and minor-safety risk cues.";
+
+      return { threat, score, confidence, stage, escalation, summary, transcript: messages, signals, actions, breakdown };
+    }
+
+    async function callLiveApi(messages){
+      const url = apiUrlInput.value.trim();
+      if(!url) throw new Error("API endpoint is empty.");
+
+      const mergedMessage = messages
+        .map(msg => `${msg.role === "sender" ? "User" : "Target"}: ${msg.text}`)
+        .join("\n");
+
+      const payload = {
+        message: mergedMessage,
+        user_id: "demo-user",
+        target_id: "demo-target"
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if(!response.ok){
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${text || "Request failed"}`);
+      }
+
+      const data = await response.json();
+      return normalizeApiResult(data, messages);
+    }
+
+    function normalizeApiResult(data, fallbackMessages){
+      const rawLevel = String(data.risk_level || data.threat || "SAFE").toUpperCase();
+      const score = Number(data.conversation_risk ?? data.score ?? 0);
+      const stage = String(data.stage || "Normal");
+      const signalNames =
+        Array.isArray(data.explanations) && data.explanations.length ? data.explanations :
+        Array.isArray(data.signals) && data.signals.length ? data.signals :
+        Array.isArray(data.reasons) && data.reasons.length ? data.reasons :
+        Array.isArray(data.matched) ? data.matched : [];
+
+      const evidenceList = Array.isArray(data.evidence) ? data.evidence : [];
+
+      const signals = signalNames.length
+        ? signalNames.map((name, index) => {
+            const evidence = evidenceList[index] || {};
+            return {
+              name: String(name).replace(/_/g, " "),
+              score: evidence.severity ? String(evidence.severity).toUpperCase() : "+1",
+              desc: evidence.signal
+                ? `Triggered by signal: ${String(evidence.signal)}`
+                : "Returned by the PlaySentinel live API."
+            };
+          })
+        : [{
+            name: "Live API output",
+            score: `+${score}`,
+            desc: "The API returned a result without a structured signal list."
+          }];
+
+      const actions = Array.isArray(data.actions) && data.actions.length
+        ? data.actions.map(action => ({
+            name: typeof action === "string" ? action : (action.name || "Action"),
+            desc: typeof action === "string" ? "Recommended by the policy engine." : (action.desc || action.description || "Recommended by the policy engine.")
+          }))
+        : [{
+            name: "Review API response",
+            desc: "No structured actions list was returned by the live API."
+          }];
+
+      const breakdown = data.categories || {
+        "Age Questions": 0,
+        "Platform Move": 0,
+        "Gifts / Rewards": 0,
+        "Secrecy": 0,
+        "Trust Building": 0,
+        "Boundary Testing": 0,
+        "Urgency / Pressure": 0,
+        "Scam Markers": 0
+      };
+
+      let threat = "Safe";
+      if (rawLevel === "CRITICAL" || rawLevel === "HIGH") threat = "High Risk";
+      else if (rawLevel === "MEDIUM") threat = "Moderate Risk";
+      else if (rawLevel === "LOW") threat = "Low Risk";
+
+      let escalation = "None";
+      if (rawLevel === "MEDIUM") escalation = "Moderate";
+      if (rawLevel === "HIGH") escalation = "High";
+      if (rawLevel === "CRITICAL") escalation = "Critical";
+
+      const summary = Array.isArray(data.reasons) && data.reasons.length
+        ? data.reasons.join(", ")
+        : "Live API result received.";
+
+      return {
+        threat,
+        score: Math.max(0, Math.min(100, Number(score) || 0)),
+        confidence: 85,
+        stage,
+        escalation,
+        summary,
+        transcript: fallbackMessages,
+        signals,
+        actions,
+        breakdown
+      };
+    }
+
+    function setEngineMode(mode){
+      engineMode = mode;
+      demoEngineBtn.classList.toggle("active", mode === "demo");
+      liveApiBtn.classList.toggle("active", mode === "live");
+      apiStatus.textContent = mode === "demo"
+        ? "Demo Engine is active. It supports English + German patterns, slang like 'u' and 'dc', and basic typo tolerance for live testing."
+        : "Live API is active. Analyze will POST a merged transcript to your public demo endpoint.";
+    }
+
+    function switchView(view){
+      document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+      document.querySelectorAll(".section-view").forEach(panel => panel.classList.toggle("active", panel.id === `view-${view}`));
+    }
+
+    async function analyzeCurrent(){
+      try{
+        analyzeBtn.textContent = "Analyzing...";
+        analyzeCustomBtn.textContent = "Analyzing...";
+
+        if(currentMode === "preset"){
+          renderResult(activeScenario);
+          return;
+        }
+
+        const messages = parseCustomInput(customInput.value);
+        if(!messages.length){
+          alert("Please add at least one valid line, e.g. User: hello");
+          return;
+        }
+
+        const result = engineMode === "demo"
+          ? analyzeWithDemoEngine(messages)
+          : await callLiveApi(messages);
+
+        renderResult(result);
+      }catch(error){
+        apiStatus.textContent = `Error: ${error.message}`;
+        alert(`Analysis failed: ${error.message}`);
+      }finally{
+        analyzeBtn.textContent = "Analyze Current View";
+        analyzeCustomBtn.textContent = "Analyze Custom Chat";
+      }
+    }
+
+    analyzeBtn.addEventListener("click", analyzeCurrent);
+
+    analyzeCustomBtn.addEventListener("click", async () => {
+      currentMode = "custom";
+      renderModes();
+      updateModeUI();
+      await analyzeCurrent();
+    });
+
+    randomBtn.addEventListener("click", () => {
+      activeScenario = presetScenarios[Math.floor(Math.random() * presetScenarios.length)];
+      renderScenarioButtons();
+      if(currentMode === "preset") renderResult(activeScenario);
+    });
+
+    loadPresetIntoCustomBtn.addEventListener("click", () => {
+      currentMode = "custom";
+      customInput.value = transcriptToCustomText(activeScenario.transcript);
+      renderModes();
+      updateModeUI();
+    });
+
+    clearCustomBtn.addEventListener("click", () => customInput.value = "");
+
+    demoEngineBtn.addEventListener("click", () => setEngineMode("demo"));
+    liveApiBtn.addEventListener("click", () => setEngineMode("live"));
+
+    document.querySelectorAll(".nav-btn").forEach(btn => {
+      btn.addEventListener("click", () => switchView(btn.dataset.view));
+    });
+
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(`panel-${tab.dataset.panel}`).classList.add("active");
+      });
+    });
+
+    renderModes();
+    renderScenarioButtons();
+    setEngineMode("demo");
+    switchView("analysis");
+    renderResult(activeScenario);
+    updateModeUI();
   </script>
 </body>
 </html>
