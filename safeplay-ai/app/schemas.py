@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 
 
 class AnalyzeRequest(BaseModel):
@@ -17,8 +17,8 @@ class AnalyzeResponse(BaseModel):
     categories: Dict[str, int]
     matched: List[str]
     reasons: List[str]
-
-    # Policy engine output (optional but usually present)
+    explanations: List[str] = []
+    evidence: List[Dict[str, Any]] = []
     actions: List[str] = []
     action_reasons: List[Dict[str, str]] = []
     policy_version: str = ""
