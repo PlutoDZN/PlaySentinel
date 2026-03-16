@@ -409,6 +409,7 @@ async def on_message(message: discord.Message):
     if should_log_incident:
         case_id = case_store.save_case(
             {
+                "case_origin": "real",
                 "platform": "discord",
                 "guild_id": str(message.guild.id),
                 "channel_id": str(message.channel.id),
