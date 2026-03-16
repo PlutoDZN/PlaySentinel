@@ -22,12 +22,12 @@ class RelationshipStore:
         last = self._last_updated[key]
         elapsed = max(0, now - last)
 
-        # SESSION RESET (z.B. nach 30 Minuten)
+        # Session reset nach 30 Minuten Inaktivität
         if elapsed > 1800:
         self._risk_scores[key] = 0
         self._relationships[key].clear()
 
-    windows = int(elapsed // self.decay_window_seconds)
+        windows = int(elapsed // self.decay_window_seconds)
 
         if windows > 0 and self._risk_scores[key] > 0:
         reduction = windows * self.decay_amount
