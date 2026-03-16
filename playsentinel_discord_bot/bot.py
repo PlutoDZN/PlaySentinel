@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import timezone
 from pathlib import Path
 from typing import Any
@@ -103,8 +104,6 @@ def get_guild_config(guild_id: int) -> dict[str, Any]:
 def get_alert_channel_id_for_guild(guild_id: int) -> int:
     guild_config = get_guild_config(guild_id)
     value = guild_config.get("alert_channel_id")
-    if value in (None, ""):
-        return int(settings.alert_channel_id or 0)
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -113,9 +112,7 @@ def get_alert_channel_id_for_guild(guild_id: int) -> int:
 
 def get_monitored_channel_ids_for_guild(guild_id: int) -> list[int]:
     guild_config = get_guild_config(guild_id)
-    raw = guild_config.get("monitored_channel_ids")
-    if raw is None:
-        return list(settings.monitored_channel_ids)
+    raw = guild_config.get("monitored_channel_ids", [])
 
     ids: list[int] = []
     if isinstance(raw, list):
@@ -127,12 +124,20 @@ def get_monitored_channel_ids_for_guild(guild_id: int) -> list[int]:
     return ids
 
 
+def get_safety_info_channel_id_for_guild(guild_id: int) -> int:
+    guild_config = get_guild_config(guild_id)
+    value = guild_config.get("safety_info_channel_id")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 def set_alert_channel_for_guild(guild_id: int, channel_id: int) -> None:
     guild_key = str(guild_id)
     guild_config = SERVER_CONFIG.setdefault(guild_key, {})
     guild_config["alert_channel_id"] = int(channel_id)
-    if "monitored_channel_ids" not in guild_config:
-        guild_config["monitored_channel_ids"] = list(settings.monitored_channel_ids)
+    guild_config.setdefault("monitored_channel_ids", [])
     save_server_config()
 
 
@@ -140,6 +145,14 @@ def set_monitored_channels_for_guild(guild_id: int, channel_ids: list[int]) -> N
     guild_key = str(guild_id)
     guild_config = SERVER_CONFIG.setdefault(guild_key, {})
     guild_config["monitored_channel_ids"] = [int(cid) for cid in channel_ids]
+    save_server_config()
+
+
+def set_safety_info_channel_for_guild(guild_id: int, channel_id: int) -> None:
+    guild_key = str(guild_id)
+    guild_config = SERVER_CONFIG.setdefault(guild_key, {})
+    guild_config["safety_info_channel_id"] = int(channel_id)
+    guild_config.setdefault("monitored_channel_ids", [])
     save_server_config()
 
 
@@ -172,13 +185,8 @@ def is_monitored_message(message: discord.Message) -> bool:
         return False
 
     guild_id_str = str(message.guild.id)
-
-    # If server_config.json has entries, only configured guilds are monitored.
-    if SERVER_CONFIG and guild_id_str not in SERVER_CONFIG:
-        return False
-
-    # Legacy fallback for older single-server setups.
-    if not SERVER_CONFIG and settings.allowed_guild_id and message.guild.id != settings.allowed_guild_id:
+    server_settings = SERVER_CONFIG.get(guild_id_str)
+    if not server_settings:
         return False
 
     monitored_channel_ids = get_monitored_channel_ids_for_guild(message.guild.id)
@@ -416,12 +424,6 @@ async def send_alert(
 @client.event
 async def on_ready():
     try:
-        if settings.allowed_guild_id:
-            guild = discord.Object(id=settings.allowed_guild_id)
-            tree.copy_global_to(guild=guild)
-            await tree.sync(guild=guild)
-            print(f"[SYNC] Synced commands to guild {settings.allowed_guild_id}")
-
         await tree.sync()
         print(f"PlaySentinel Bot gestartet als {client.user}")
         print(f"[SERVER CONFIG] Loaded guild configs: {', '.join(SERVER_CONFIG.keys()) or 'none'}")
@@ -694,7 +696,7 @@ async def set_monitored_channels(interaction: discord.Interaction, channels: str
         mentions = ", ".join(f"<#{cid}>" for cid in parsed_ids)
         msg = f"PlaySentinel will now only monitor these channels in **{interaction.guild.name}**: {mentions}"
     else:
-        msg = f"PlaySentinel channel restriction cleared for **{interaction.guild.name}**. It will use the default/global behavior again."
+        msg = f"PlaySentinel channel restriction cleared for **{interaction.guild.name}**. It will monitor all channels again."
 
     await interaction.response.send_message(msg, ephemeral=True)
 
@@ -709,8 +711,8 @@ async def server_config_command(interaction: discord.Interaction):
     alert_channel_id = get_alert_channel_id_for_guild(interaction.guild.id)
     monitored_channel_ids = get_monitored_channel_ids_for_guild(interaction.guild.id)
 
-    monitored_text = ", ".join(f"<#{cid}>" for cid in monitored_channel_ids) if monitored_channel_ids else "all channels allowed"
-    config_source = "server_config.json" if str(interaction.guild.id) in SERVER_CONFIG else "legacy env/default"
+    monitored_text = ", ".join(f"<#{cid}>" for cid in monitored_channel_ids) if monitored_channel_ids else "all channels"
+    config_source = "server_config.json" if str(interaction.guild.id) in SERVER_CONFIG else "not configured"
 
     message = (
         f"**PlaySentinel Server Config**\n"
@@ -725,6 +727,7 @@ async def server_config_command(interaction: discord.Interaction):
 
 @set_alert_channel.error
 @set_monitored_channels.error
+@setup_command.error
 async def admin_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.errors.MissingPermissions):
         await interaction.response.send_message(
@@ -734,6 +737,89 @@ async def admin_command_error(interaction: discord.Interaction, error: app_comma
         return
 
     raise error
+
+
+
+
+def build_safety_notice(server_name: str) -> str:
+    return (
+        "**PlaySentinel Safety System**\n\n"
+        f"This server uses **PlaySentinel** to help detect risky chat patterns in **{server_name}**, "
+        "including scam attempts, spam bursts, and grooming-related behavior.\n\n"
+        "**Important:**\n"
+        "- PlaySentinel does **not automatically punish users**.\n"
+        "- Flagged conversations are **reviewed by human moderators**.\n"
+        "- The system is used only for **community safety and moderation purposes**.\n\n"
+        "Use **/about** for a short explanation and **/privacy** for message analysis details."
+    )
+
+
+@tree.command(name="setup", description="Create or update PlaySentinel server setup")
+@app_commands.checks.has_permissions(manage_guild=True)
+@app_commands.describe(
+    alert_channel="Channel where PlaySentinel should send alerts",
+    create_safety_info="Create a #safety-info channel if none exists",
+    monitored_channels="Optional: up to 10 channel mentions or IDs separated by spaces",
+)
+async def setup_command(
+    interaction: discord.Interaction,
+    alert_channel: discord.TextChannel,
+    create_safety_info: bool = True,
+    monitored_channels: str = "",
+):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command only works in a server.", ephemeral=True)
+        return
+
+    guild = interaction.guild
+    await interaction.response.defer(ephemeral=True)
+
+    set_alert_channel_for_guild(guild.id, alert_channel.id)
+
+    parsed_ids: list[int] = []
+    for token in monitored_channels.replace(",", " ").split():
+        cleaned = token.strip().replace("<", "").replace(">", "").replace("#", "")
+        if cleaned.isdigit():
+            parsed_ids.append(int(cleaned))
+    parsed_ids = list(dict.fromkeys(parsed_ids))[:10]
+    set_monitored_channels_for_guild(guild.id, parsed_ids)
+
+    info_channel = None
+    existing_rules_like = discord.utils.find(
+        lambda c: isinstance(c, discord.TextChannel) and c.name.lower() in {"rules", "server-info", "info", "safety-info"},
+        guild.text_channels,
+    )
+
+    if existing_rules_like is not None:
+        info_channel = existing_rules_like
+    elif create_safety_info:
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=True, send_messages=False),
+            guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True),
+        }
+        try:
+            info_channel = await guild.create_text_channel("safety-info", overwrites=overwrites, reason="PlaySentinel setup")
+        except Exception:
+            info_channel = None
+
+    safety_notice_result = "not posted"
+    if info_channel is not None:
+        try:
+            await info_channel.send(build_safety_notice(guild.name))
+            set_safety_info_channel_for_guild(guild.id, info_channel.id)
+            safety_notice_result = f"posted in {info_channel.mention}"
+        except Exception as exc:
+            safety_notice_result = f"failed to post: {exc}"
+
+    monitored_text = ", ".join(f"<#{cid}>" for cid in parsed_ids) if parsed_ids else "all channels"
+    await interaction.followup.send(
+        f"**PlaySentinel setup complete**\n"
+        f"Server: **{guild.name}**\n"
+        f"Alert channel: {alert_channel.mention}\n"
+        f"Monitored channels: {monitored_text}\n"
+        f"Safety notice: **{safety_notice_result}**",
+        ephemeral=True,
+    )
 
 
 @tree.command(name="resetstate", description="Reset local state and optionally backend state for a source -> target pair")
