@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from collections import defaultdict, deque
@@ -24,14 +23,14 @@ class RelationshipStore:
 
         # Session reset nach 30 Minuten Inaktivität
         if elapsed > 1800:
-        self._risk_scores[key] = 0
-        self._relationships[key].clear()
+            self._risk_scores[key] = 0
+            self._relationships[key].clear()
 
         windows = int(elapsed // self.decay_window_seconds)
 
         if windows > 0 and self._risk_scores[key] > 0:
-        reduction = windows * self.decay_amount
-        self._risk_scores[key] = max(0, self._risk_scores[key] - reduction)
+            reduction = windows * self.decay_amount
+            self._risk_scores[key] = max(0, self._risk_scores[key] - reduction)
 
         self._last_updated[key] = now
         return self._risk_scores[key]
