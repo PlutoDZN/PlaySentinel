@@ -800,6 +800,27 @@ async def reset_state_command(
         ephemeral=True,
     )
 
+@tree.command(name="export_cases", description="Export all stored cases")
+@app_commands.checks.has_permissions(administrator=True)
+async def export_cases(interaction: discord.Interaction):
+
+    file_path = "flagged_cases.jsonl"
+
+    if not os.path.exists(file_path):
+        await interaction.response.send_message(
+            "No cases stored yet.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.send_message(
+        "Exporting case file...",
+        ephemeral=True
+    )
+
+    await interaction.followup.send(
+        file=discord.File(file_path)
+    )
 
 @tree.command(name="inspectrisk", description="Inspect relationship risk and recent context")
 @app_commands.describe(
