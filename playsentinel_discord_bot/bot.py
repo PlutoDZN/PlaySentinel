@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from datetime import timezone
+from pathlib import Path
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -19,6 +22,7 @@ from storage.relationship_store import RelationshipStore
 settings = load_settings()
 
 COLLECT_ONLY_MODE = True
+SERVER_CONFIG_PATH = Path("server_config.json")
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -41,6 +45,102 @@ api_client = PlaySentinelApiClient(
     retries=settings.api_retries,
     reset_url=settings.reset_url,
 )
+
+
+def load_server_config() -> dict[str, dict[str, Any]]:
+    if not SERVER_CONFIG_PATH.exists():
+        return {}
+
+    try:
+        with SERVER_CONFIG_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        print(f"[SERVER CONFIG] Failed to load server_config.json: {exc}")
+        return {}
+
+    if not isinstance(data, dict):
+        print("[SERVER CONFIG] server_config.json must be a JSON object.")
+        return {}
+
+    cleaned: dict[str, dict[str, Any]] = {}
+    for guild_id, config in data.items():
+        if isinstance(config, dict):
+            cleaned[str(guild_id)] = config
+    return cleaned
+
+
+def save_server_config() -> None:
+    with SERVER_CONFIG_PATH.open("w", encoding="utf-8") as f:
+        json.dump(SERVER_CONFIG, f, indent=2, ensure_ascii=False)
+
+
+SERVER_CONFIG: dict[str, dict[str, Any]] = load_server_config()
+
+
+def bootstrap_server_config_from_env() -> None:
+    """Create an initial config from legacy env vars if nothing exists yet."""
+    if SERVER_CONFIG:
+        return
+    if settings.allowed_guild_id and settings.alert_channel_id:
+        SERVER_CONFIG[str(settings.allowed_guild_id)] = {
+            "alert_channel_id": settings.alert_channel_id,
+            "monitored_channel_ids": settings.monitored_channel_ids,
+        }
+        try:
+            save_server_config()
+            print(f"[SERVER CONFIG] Bootstrapped config for guild {settings.allowed_guild_id}")
+        except Exception as exc:
+            print(f"[SERVER CONFIG] Failed to bootstrap config: {exc}")
+
+
+bootstrap_server_config_from_env()
+
+
+def get_guild_config(guild_id: int) -> dict[str, Any]:
+    return SERVER_CONFIG.get(str(guild_id), {})
+
+
+def get_alert_channel_id_for_guild(guild_id: int) -> int:
+    guild_config = get_guild_config(guild_id)
+    value = guild_config.get("alert_channel_id")
+    if value in (None, ""):
+        return int(settings.alert_channel_id or 0)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def get_monitored_channel_ids_for_guild(guild_id: int) -> list[int]:
+    guild_config = get_guild_config(guild_id)
+    raw = guild_config.get("monitored_channel_ids")
+    if raw is None:
+        return list(settings.monitored_channel_ids)
+
+    ids: list[int] = []
+    if isinstance(raw, list):
+        for value in raw:
+            try:
+                ids.append(int(value))
+            except (TypeError, ValueError):
+                continue
+    return ids
+
+
+def set_alert_channel_for_guild(guild_id: int, channel_id: int) -> None:
+    guild_key = str(guild_id)
+    guild_config = SERVER_CONFIG.setdefault(guild_key, {})
+    guild_config["alert_channel_id"] = int(channel_id)
+    if "monitored_channel_ids" not in guild_config:
+        guild_config["monitored_channel_ids"] = list(settings.monitored_channel_ids)
+    save_server_config()
+
+
+def set_monitored_channels_for_guild(guild_id: int, channel_ids: list[int]) -> None:
+    guild_key = str(guild_id)
+    guild_config = SERVER_CONFIG.setdefault(guild_key, {})
+    guild_config["monitored_channel_ids"] = [int(cid) for cid in channel_ids]
+    save_server_config()
 
 
 def normalize_message(message: discord.Message) -> dict:
@@ -70,10 +170,21 @@ def normalize_message(message: discord.Message) -> dict:
 def is_monitored_message(message: discord.Message) -> bool:
     if message.guild is None:
         return False
-    if settings.allowed_guild_id and message.guild.id != settings.allowed_guild_id:
+
+    guild_id_str = str(message.guild.id)
+
+    # If server_config.json has entries, only configured guilds are monitored.
+    if SERVER_CONFIG and guild_id_str not in SERVER_CONFIG:
         return False
-    if settings.monitored_channel_ids and message.channel.id not in settings.monitored_channel_ids:
+
+    # Legacy fallback for older single-server setups.
+    if not SERVER_CONFIG and settings.allowed_guild_id and message.guild.id != settings.allowed_guild_id:
         return False
+
+    monitored_channel_ids = get_monitored_channel_ids_for_guild(message.guild.id)
+    if monitored_channel_ids and message.channel.id not in monitored_channel_ids:
+        return False
+
     return True
 
 
@@ -260,14 +371,15 @@ async def send_alert(
     conversation_risk: int,
     effective_score: int,
 ) -> None:
-    if not settings.alert_channel_id:
-        print("[ALERT] ALERT_CHANNEL_ID not configured.")
+    alert_channel_id = get_alert_channel_id_for_guild(message.guild.id)
+    if not alert_channel_id:
+        print(f"[ALERT] No alert channel configured for guild {message.guild.id}.")
         return
 
-    alert_channel = client.get_channel(settings.alert_channel_id)
+    alert_channel = client.get_channel(alert_channel_id)
     if alert_channel is None:
         try:
-            alert_channel = await client.fetch_channel(settings.alert_channel_id)
+            alert_channel = await client.fetch_channel(alert_channel_id)
         except Exception as exc:
             print(f"[ALERT ERROR] Could not fetch alert channel: {exc}")
             return
@@ -293,7 +405,10 @@ async def send_alert(
 
     try:
         await alert_channel.send(alert_text)
-        print(f"[ALERT SENT] case_id={case_id} effective_score={effective_score} target={target_id}")
+        print(
+            f"[ALERT SENT] guild={message.guild.id} case_id={case_id} "
+            f"effective_score={effective_score} target={target_id}"
+        )
     except Exception as exc:
         print(f"[ALERT ERROR] Failed to send alert: {exc}")
 
@@ -309,6 +424,7 @@ async def on_ready():
 
         await tree.sync()
         print(f"PlaySentinel Bot gestartet als {client.user}")
+        print(f"[SERVER CONFIG] Loaded guild configs: {', '.join(SERVER_CONFIG.keys()) or 'none'}")
     except Exception as exc:
         print(f"[SYNC ERROR] {exc}")
 
@@ -357,7 +473,7 @@ async def on_message(message: discord.Message):
         target_user_id=target_id,
     )
 
-    print(f"[DEBUG] target_id={target_id}")
+    print(f"[DEBUG] guild_id={message.guild.id} target_id={target_id}")
     print(f"[DEBUG] relationship_context_len={len(relationship_context)}")
 
     payload = build_payload(message, relationship_context, target_id)
@@ -395,7 +511,7 @@ async def on_message(message: discord.Message):
     )
 
     print(
-        f"[REL] source={normalized['author_id']} "
+        f"[REL] guild={message.guild.id} source={normalized['author_id']} "
         f"target={target_id} "
         f"message_score={parsed.get('score', 0)} "
         f"effective_score={effective_score} "
@@ -426,7 +542,7 @@ async def on_message(message: discord.Message):
         )
 
         print(
-            f"[FLAGGED] case_id={case_id} "
+            f"[FLAGGED] guild={message.guild.id} case_id={case_id} "
             f"score={parsed.get('score', 0)} "
             f"effective_score={effective_score} "
             f"conversation_risk={conversation_risk} "
@@ -450,7 +566,6 @@ async def on_message(message: discord.Message):
                 f"[ALERT SKIPPED] cooldown active for "
                 f"source={normalized['author_id']} target={target_id}"
             )
-
 
 
 @tree.command(name="review", description="Review a PlaySentinel case")
@@ -484,26 +599,37 @@ async def review_case(interaction: discord.Interaction, case_id: str, verdict: s
     )
 
 
-@tree.command(name="testalert", description="Send a PlaySentinel test alert")
+@tree.command(name="testalert", description="Send a PlaySentinel test alert for this server")
 async def test_alert(interaction: discord.Interaction):
-    if not settings.alert_channel_id:
-        await interaction.response.send_message("ALERT_CHANNEL_ID is not configured.", ephemeral=True)
+    if interaction.guild is None:
+        await interaction.response.send_message("This command only works in a server.", ephemeral=True)
         return
 
-    channel = client.get_channel(settings.alert_channel_id)
+    alert_channel_id = get_alert_channel_id_for_guild(interaction.guild.id)
+    if not alert_channel_id:
+        await interaction.response.send_message(
+            "No alert channel configured for this server. Use /set_alert_channel first.",
+            ephemeral=True,
+        )
+        return
+
+    channel = client.get_channel(alert_channel_id)
     if channel is None:
         try:
-            channel = await client.fetch_channel(settings.alert_channel_id)
+            channel = await client.fetch_channel(alert_channel_id)
         except Exception as exc:
             await interaction.response.send_message(f"Could not fetch alert channel: {exc}", ephemeral=True)
             return
 
-    await channel.send("🧪 PlaySentinel test alert: Bot can send messages to the alert channel.")
-    await interaction.response.send_message("Test alert sent.", ephemeral=True)
+    await channel.send(f"🧪 PlaySentinel test alert for **{interaction.guild.name}**.")
+    await interaction.response.send_message(
+        f"Test alert sent to <#{alert_channel_id}>.",
+        ephemeral=True,
+    )
+
 
 @tree.command(name="about", description="Information about PlaySentinel")
 async def about(interaction: discord.Interaction):
-
     message = (
         "**PlaySentinel**\n\n"
         "PlaySentinel is a safety moderation system designed to detect risky chat patterns "
@@ -515,9 +641,9 @@ async def about(interaction: discord.Interaction):
 
     await interaction.response.send_message(message, ephemeral=True)
 
+
 @tree.command(name="privacy", description="Information about message analysis and privacy")
 async def privacy(interaction: discord.Interaction):
-
     message = (
         "**PlaySentinel Privacy Notice**\n\n"
         "Messages in this server may be analyzed by automated moderation tools "
@@ -528,6 +654,86 @@ async def privacy(interaction: discord.Interaction):
     )
 
     await interaction.response.send_message(message, ephemeral=True)
+
+
+@tree.command(name="set_alert_channel", description="Set the PlaySentinel alert channel for this server")
+@app_commands.checks.has_permissions(manage_guild=True)
+@app_commands.describe(channel="Channel where PlaySentinel should send alerts")
+async def set_alert_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command only works in a server.", ephemeral=True)
+        return
+
+    set_alert_channel_for_guild(interaction.guild.id, channel.id)
+    await interaction.response.send_message(
+        f"PlaySentinel alert channel for **{interaction.guild.name}** set to {channel.mention}.",
+        ephemeral=True,
+    )
+
+
+@tree.command(name="set_monitored_channels", description="Restrict PlaySentinel monitoring to specific channels")
+@app_commands.checks.has_permissions(manage_guild=True)
+@app_commands.describe(
+    channels="Up to 10 channel mentions or IDs separated by spaces. Leave empty to clear the restriction.",
+)
+async def set_monitored_channels(interaction: discord.Interaction, channels: str = ""):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command only works in a server.", ephemeral=True)
+        return
+
+    parsed_ids: list[int] = []
+    for token in channels.replace(",", " ").split():
+        cleaned = token.strip().replace("<", "").replace(">", "").replace("#", "")
+        if cleaned.isdigit():
+            parsed_ids.append(int(cleaned))
+
+    parsed_ids = list(dict.fromkeys(parsed_ids))[:10]
+    set_monitored_channels_for_guild(interaction.guild.id, parsed_ids)
+
+    if parsed_ids:
+        mentions = ", ".join(f"<#{cid}>" for cid in parsed_ids)
+        msg = f"PlaySentinel will now only monitor these channels in **{interaction.guild.name}**: {mentions}"
+    else:
+        msg = f"PlaySentinel channel restriction cleared for **{interaction.guild.name}**. It will use the default/global behavior again."
+
+    await interaction.response.send_message(msg, ephemeral=True)
+
+
+@tree.command(name="serverconfig", description="Show PlaySentinel config for this server")
+async def server_config_command(interaction: discord.Interaction):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command only works in a server.", ephemeral=True)
+        return
+
+    guild_config = get_guild_config(interaction.guild.id)
+    alert_channel_id = get_alert_channel_id_for_guild(interaction.guild.id)
+    monitored_channel_ids = get_monitored_channel_ids_for_guild(interaction.guild.id)
+
+    monitored_text = ", ".join(f"<#{cid}>" for cid in monitored_channel_ids) if monitored_channel_ids else "all channels allowed"
+    config_source = "server_config.json" if str(interaction.guild.id) in SERVER_CONFIG else "legacy env/default"
+
+    message = (
+        f"**PlaySentinel Server Config**\n"
+        f"Server: **{interaction.guild.name}** (`{interaction.guild.id}`)\n"
+        f"Config source: **{config_source}**\n"
+        f"Alert channel: {f'<#{alert_channel_id}>' if alert_channel_id else 'not set'}\n"
+        f"Monitored channels: {monitored_text}\n"
+        f"Raw config: ```json\n{json.dumps(guild_config, indent=2) if guild_config else '{}'}\n```"
+    )
+    await interaction.response.send_message(message[:1900], ephemeral=True)
+
+
+@set_alert_channel.error
+@set_monitored_channels.error
+async def admin_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the **Manage Server** permission to use this command.",
+            ephemeral=True,
+        )
+        return
+
+    raise error
 
 
 @tree.command(name="resetstate", description="Reset local state and optionally backend state for a source -> target pair")
