@@ -727,7 +727,7 @@ async def server_config_command(interaction: discord.Interaction):
 
 @set_alert_channel.error
 @set_monitored_channels.error
-@setup_command.error
+@setup.error
 async def admin_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.errors.MissingPermissions):
         await interaction.response.send_message(
