@@ -500,6 +500,34 @@ async def test_alert(interaction: discord.Interaction):
     await channel.send("🧪 PlaySentinel test alert: Bot can send messages to the alert channel.")
     await interaction.response.send_message("Test alert sent.", ephemeral=True)
 
+@tree.command(name="about", description="Information about PlaySentinel")
+async def about(interaction: discord.Interaction):
+
+    message = (
+        "**PlaySentinel**\n\n"
+        "PlaySentinel is a safety moderation system designed to detect risky chat patterns "
+        "such as scam attempts or grooming-related behavior.\n\n"
+        "The system analyzes conversation signals and may generate alerts so human "
+        "moderators can review potentially harmful interactions.\n\n"
+        "PlaySentinel does not automatically punish users."
+    )
+
+    await interaction.response.send_message(message, ephemeral=True)
+
+@tree.command(name="privacy", description="Information about message analysis and privacy")
+async def privacy(interaction: discord.Interaction):
+
+    message = (
+        "**PlaySentinel Privacy Notice**\n\n"
+        "Messages in this server may be analyzed by automated moderation tools "
+        "to detect risky interaction patterns such as scams or grooming attempts.\n\n"
+        "The system evaluates conversation signals to assist moderators.\n\n"
+        "PlaySentinel does not create permanent user profiles and does not make "
+        "final accusations. Flagged conversations are always reviewed by human moderators."
+    )
+
+    await interaction.response.send_message(message, ephemeral=True)
+
 
 @tree.command(name="resetstate", description="Reset local state and optionally backend state for a source -> target pair")
 @app_commands.describe(
