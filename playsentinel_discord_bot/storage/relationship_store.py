@@ -18,23 +18,23 @@ class RelationshipStore:
         return (guild_id, source_user_id, target_user_id)
 
     def _apply_decay(self, key: tuple[int, str, str]) -> int:
-    now = time()
-    last = self._last_updated[key]
-    elapsed = max(0, now - last)
+        now = time()
+        last = self._last_updated[key]
+        elapsed = max(0, now - last)
 
-    # SESSION RESET (z.B. nach 30 Minuten)
-    if elapsed > 1800:
+        # SESSION RESET (z.B. nach 30 Minuten)
+        if elapsed > 1800:
         self._risk_scores[key] = 0
         self._relationships[key].clear()
 
     windows = int(elapsed // self.decay_window_seconds)
 
-    if windows > 0 and self._risk_scores[key] > 0:
+        if windows > 0 and self._risk_scores[key] > 0:
         reduction = windows * self.decay_amount
         self._risk_scores[key] = max(0, self._risk_scores[key] - reduction)
 
-    self._last_updated[key] = now
-    return self._risk_scores[key]
+        self._last_updated[key] = now
+        return self._risk_scores[key]
 
     def add_event(self, guild_id: int, source_user_id: str, target_user_id: str, event_data: dict) -> None:
         self._relationships[self._key(guild_id, source_user_id, target_user_id)].append(event_data)
