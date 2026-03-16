@@ -1,0 +1,6 @@
+{
+  "YOUR_GUILD_ID_HERE": {
+    "alert_channel_id": 0,
+    "monitored_channel_ids": []
+  }
+}
