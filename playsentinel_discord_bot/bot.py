@@ -416,15 +416,13 @@ async def send_alert(
 @client.event
 async def on_ready():
     try:
-        if settings.allowed_guild_id:
-            guild = discord.Object(id=settings.allowed_guild_id)
-            tree.copy_global_to(guild=guild)
-            await tree.sync(guild=guild)
-            print(f"[SYNC] Synced commands to guild {settings.allowed_guild_id}")
-
-        await tree.sync()
         print(f"PlaySentinel Bot gestartet als {client.user}")
         print(f"[SERVER CONFIG] Loaded guild configs: {', '.join(SERVER_CONFIG.keys()) or 'none'}")
+
+        for guild in client.guilds:
+            synced = await tree.sync(guild=guild)
+            print(f"[SYNC] Synced {len(synced)} commands for guild {guild.name} ({guild.id})")
+
     except Exception as exc:
         print(f"[SYNC ERROR] {exc}")
 
