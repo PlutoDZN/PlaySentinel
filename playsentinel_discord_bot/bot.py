@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import timezone
 from pathlib import Path
 from typing import Any
@@ -78,13 +79,12 @@ SERVER_CONFIG: dict[str, dict[str, Any]] = load_server_config()
 
 
 def bootstrap_server_config_from_env() -> None:
-    """Create an initial config from legacy env vars if nothing exists yet."""
     if SERVER_CONFIG:
         return
     if settings.allowed_guild_id and settings.alert_channel_id:
         SERVER_CONFIG[str(settings.allowed_guild_id)] = {
-            "alert_channel_id": settings.alert_channel_id,
-            "monitored_channel_ids": settings.monitored_channel_ids,
+            "alert_channel_id": int(settings.alert_channel_id),
+            "monitored_channel_ids": list(settings.monitored_channel_ids),
         }
         try:
             save_server_config()
@@ -127,12 +127,20 @@ def get_monitored_channel_ids_for_guild(guild_id: int) -> list[int]:
     return ids
 
 
+def get_safety_info_channel_id_for_guild(guild_id: int) -> int:
+    guild_config = get_guild_config(guild_id)
+    value = guild_config.get("safety_info_channel_id")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 def set_alert_channel_for_guild(guild_id: int, channel_id: int) -> None:
     guild_key = str(guild_id)
     guild_config = SERVER_CONFIG.setdefault(guild_key, {})
     guild_config["alert_channel_id"] = int(channel_id)
-    if "monitored_channel_ids" not in guild_config:
-        guild_config["monitored_channel_ids"] = list(settings.monitored_channel_ids)
+    guild_config.setdefault("monitored_channel_ids", list(settings.monitored_channel_ids))
     save_server_config()
 
 
@@ -141,6 +149,27 @@ def set_monitored_channels_for_guild(guild_id: int, channel_ids: list[int]) -> N
     guild_config = SERVER_CONFIG.setdefault(guild_key, {})
     guild_config["monitored_channel_ids"] = [int(cid) for cid in channel_ids]
     save_server_config()
+
+
+def set_safety_info_channel_for_guild(guild_id: int, channel_id: int) -> None:
+    guild_key = str(guild_id)
+    guild_config = SERVER_CONFIG.setdefault(guild_key, {})
+    guild_config["safety_info_channel_id"] = int(channel_id)
+    guild_config.setdefault("monitored_channel_ids", list(settings.monitored_channel_ids))
+    save_server_config()
+
+
+def build_safety_notice(server_name: str) -> str:
+    return (
+        "**PlaySentinel Safety System**\n\n"
+        f"This server uses **PlaySentinel** to help detect risky chat patterns in **{server_name}**, "
+        "including scam attempts, spam bursts, and grooming-related behavior.\n\n"
+        "**Important:**\n"
+        "- PlaySentinel does **not automatically punish users**.\n"
+        "- Flagged conversations are **reviewed by human moderators**.\n"
+        "- The system is used only for **community safety and moderation purposes**.\n\n"
+        "Use **/about** for a short explanation and **/privacy** for message analysis details."
+    )
 
 
 def normalize_message(message: discord.Message) -> dict:
@@ -169,20 +198,27 @@ def normalize_message(message: discord.Message) -> dict:
 
 def is_monitored_message(message: discord.Message) -> bool:
     if message.guild is None:
+        print("[FILTER] ignored DM/private message")
         return False
 
     guild_id_str = str(message.guild.id)
 
-    # If server_config.json has entries, only configured guilds are monitored.
     if SERVER_CONFIG and guild_id_str not in SERVER_CONFIG:
+        print(f"[FILTER] guild {guild_id_str} not configured in server_config.json")
         return False
 
-    # Legacy fallback for older single-server setups.
     if not SERVER_CONFIG and settings.allowed_guild_id and message.guild.id != settings.allowed_guild_id:
+        print(
+            f"[FILTER] guild {message.guild.id} ignored by legacy allowed_guild_id={settings.allowed_guild_id}"
+        )
         return False
 
     monitored_channel_ids = get_monitored_channel_ids_for_guild(message.guild.id)
     if monitored_channel_ids and message.channel.id not in monitored_channel_ids:
+        print(
+            f"[FILTER] channel {message.channel.id} not monitored for guild {message.guild.id}; "
+            f"allowed={monitored_channel_ids}"
+        )
         return False
 
     return True
@@ -247,45 +283,13 @@ def parse_api_result(result: dict | None) -> dict:
     stage_lower = stage.lower()
 
     scam_terms = {
-        "password",
-        "passwort",
-        "free",
-        "bucks",
-        "robux",
-        "nitro",
-        "gift",
-        "giveaway",
-        "login",
-        "account",
-        "steam",
-        "paypal",
-        "trade",
-        "crypto",
-        "wallet",
+        "password", "passwort", "free", "bucks", "robux", "nitro", "gift",
+        "giveaway", "login", "account", "steam", "paypal", "trade", "crypto", "wallet",
     }
     grooming_terms = {
-        "snap",
-        "snapchat",
-        "discord",
-        "telegram",
-        "instagram",
-        "whatsapp",
-        "signal",
-        "kik",
-        "kick",
-        "skype",
-        "steam",
-        "riot",
-        "epic",
-        "battle.net",
-        "secret",
-        "keep_it_secret",
-        "age",
-        "old",
-        "how_old",
-        "platform_switch",
-        "meet",
-        "alone",
+        "snap", "snapchat", "discord", "telegram", "instagram", "whatsapp", "signal", "kik",
+        "kick", "skype", "steam", "riot", "epic", "battle.net", "secret", "keep_it_secret",
+        "age", "old", "how_old", "platform_switch", "meet", "alone",
     }
 
     def contains_any(signals: list[str], terms: set[str]) -> bool:
@@ -423,6 +427,9 @@ async def on_ready():
             synced = await tree.sync(guild=guild)
             print(f"[SYNC] Synced {len(synced)} commands for guild {guild.name} ({guild.id})")
 
+        global_synced = await tree.sync()
+        print(f"[SYNC] Synced {len(global_synced)} global commands")
+
     except Exception as exc:
         print(f"[SYNC ERROR] {exc}")
 
@@ -550,7 +557,10 @@ async def on_message(message: discord.Message):
         )
 
     if should_send_alert and case_id:
-        if alert_state_store.should_alert(normalized["author_id"], target_id):
+        cooldown_source = f"{message.guild.id}:{normalized['author_id']}"
+        cooldown_target = f"{message.guild.id}:{target_id}"
+
+        if alert_state_store.should_alert(cooldown_source, cooldown_target):
             await send_alert(
                 message=message,
                 parsed=parsed,
@@ -562,7 +572,7 @@ async def on_message(message: discord.Message):
         else:
             print(
                 f"[ALERT SKIPPED] cooldown active for "
-                f"source={normalized['author_id']} target={target_id}"
+                f"guild={message.guild.id} source={normalized['author_id']} target={target_id}"
             )
 
 
@@ -606,7 +616,7 @@ async def test_alert(interaction: discord.Interaction):
     alert_channel_id = get_alert_channel_id_for_guild(interaction.guild.id)
     if not alert_channel_id:
         await interaction.response.send_message(
-            "No alert channel configured for this server. Use /set_alert_channel first.",
+            "No alert channel configured for this server. Use /set_alert_channel or /setup first.",
             ephemeral=True,
         )
         return
@@ -692,7 +702,7 @@ async def set_monitored_channels(interaction: discord.Interaction, channels: str
         mentions = ", ".join(f"<#{cid}>" for cid in parsed_ids)
         msg = f"PlaySentinel will now only monitor these channels in **{interaction.guild.name}**: {mentions}"
     else:
-        msg = f"PlaySentinel channel restriction cleared for **{interaction.guild.name}**. It will use the default/global behavior again."
+        msg = f"PlaySentinel channel restriction cleared for **{interaction.guild.name}**. It will monitor all channels again."
 
     await interaction.response.send_message(msg, ephemeral=True)
 
@@ -706,6 +716,7 @@ async def server_config_command(interaction: discord.Interaction):
     guild_config = get_guild_config(interaction.guild.id)
     alert_channel_id = get_alert_channel_id_for_guild(interaction.guild.id)
     monitored_channel_ids = get_monitored_channel_ids_for_guild(interaction.guild.id)
+    safety_info_channel_id = get_safety_info_channel_id_for_guild(interaction.guild.id)
 
     monitored_text = ", ".join(f"<#{cid}>" for cid in monitored_channel_ids) if monitored_channel_ids else "all channels allowed"
     config_source = "server_config.json" if str(interaction.guild.id) in SERVER_CONFIG else "legacy env/default"
@@ -716,19 +727,108 @@ async def server_config_command(interaction: discord.Interaction):
         f"Config source: **{config_source}**\n"
         f"Alert channel: {f'<#{alert_channel_id}>' if alert_channel_id else 'not set'}\n"
         f"Monitored channels: {monitored_text}\n"
+        f"Safety info channel: {f'<#{safety_info_channel_id}>' if safety_info_channel_id else 'not set'}\n"
         f"Raw config: ```json\n{json.dumps(guild_config, indent=2) if guild_config else '{}'}\n```"
+
     )
     await interaction.response.send_message(message[:1900], ephemeral=True)
 
 
+@tree.command(name="setup", description="Create or update PlaySentinel server setup")
+@app_commands.checks.has_permissions(manage_guild=True)
+@app_commands.describe(
+    alert_channel="Channel where PlaySentinel should send alerts",
+    create_safety_info="Create a #safety-info channel if none exists",
+    monitored_channels="Optional: up to 10 channel mentions or IDs separated by spaces",
+)
+async def setup_command(
+    interaction: discord.Interaction,
+    alert_channel: discord.TextChannel,
+    create_safety_info: bool = True,
+    monitored_channels: str = "",
+):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command only works in a server.", ephemeral=True)
+        return
+
+    guild = interaction.guild
+    await interaction.response.defer(ephemeral=True)
+
+    set_alert_channel_for_guild(guild.id, alert_channel.id)
+
+    parsed_ids: list[int] = []
+    for token in monitored_channels.replace(",", " ").split():
+        cleaned = token.strip().replace("<", "").replace(">", "").replace("#", "")
+        if cleaned.isdigit():
+            parsed_ids.append(int(cleaned))
+    parsed_ids = list(dict.fromkeys(parsed_ids))[:10]
+    set_monitored_channels_for_guild(guild.id, parsed_ids)
+
+    info_channel: discord.TextChannel | None = None
+    existing_rules_like = discord.utils.find(
+        lambda c: isinstance(c, discord.TextChannel) and c.name.lower() in {"rules", "server-info", "info", "safety-info"},
+        guild.text_channels,
+    )
+
+    if existing_rules_like is not None:
+        info_channel = existing_rules_like
+    elif create_safety_info:
+        bot_member = guild.me
+        overwrites: dict[Any, discord.PermissionOverwrite] = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=True, send_messages=False),
+        }
+        if bot_member is not None:
+            overwrites[bot_member] = discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                manage_channels=True,
+            )
+
+        try:
+            info_channel = await guild.create_text_channel(
+                "safety-info",
+                overwrites=overwrites,
+                reason="PlaySentinel setup",
+            )
+        except Exception as exc:
+            print(f"[SETUP] Failed to create safety-info in guild {guild.id}: {exc}")
+            info_channel = None
+
+    safety_notice_result = "not posted"
+    if info_channel is not None:
+        try:
+            await info_channel.send(build_safety_notice(guild.name))
+            set_safety_info_channel_for_guild(guild.id, info_channel.id)
+            safety_notice_result = f"posted in {info_channel.mention}"
+        except Exception as exc:
+            safety_notice_result = f"failed to post: {exc}"
+
+    monitored_text = ", ".join(f"<#{cid}>" for cid in parsed_ids) if parsed_ids else "all channels"
+    await interaction.followup.send(
+        f"**PlaySentinel setup complete**\n"
+        f"Server: **{guild.name}**\n"
+        f"Alert channel: {alert_channel.mention}\n"
+        f"Monitored channels: {monitored_text}\n"
+        f"Safety notice: **{safety_notice_result}**",
+        ephemeral=True,
+    )
+
+
 @set_alert_channel.error
 @set_monitored_channels.error
+@setup_command.error
 async def admin_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.errors.MissingPermissions):
-        await interaction.response.send_message(
-            "You need the **Manage Server** permission to use this command.",
-            ephemeral=True,
-        )
+        if interaction.response.is_done():
+            await interaction.followup.send(
+                "You need the **Manage Server** permission to use this command.",
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                "You need the **Manage Server** permission to use this command.",
+                ephemeral=True,
+            )
         return
 
     raise error
@@ -798,27 +898,28 @@ async def reset_state_command(
         ephemeral=True,
     )
 
+
 @tree.command(name="export_cases", description="Export all stored cases")
 @app_commands.checks.has_permissions(administrator=True)
 async def export_cases(interaction: discord.Interaction):
-
     file_path = "flagged_cases.jsonl"
 
     if not os.path.exists(file_path):
         await interaction.response.send_message(
             "No cases stored yet.",
-            ephemeral=True
+            ephemeral=True,
         )
         return
 
     await interaction.response.send_message(
         "Exporting case file...",
-        ephemeral=True
+        ephemeral=True,
     )
 
     await interaction.followup.send(
         file=discord.File(file_path)
     )
+
 
 @tree.command(name="inspectrisk", description="Inspect relationship risk and recent context")
 @app_commands.describe(
