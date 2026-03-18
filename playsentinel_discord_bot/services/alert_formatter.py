@@ -24,7 +24,10 @@ def format_alert_message(
     conversation_risk: int | None = None,
     source: str = "unknown",
 ) -> str:
-    signal_text = ", ".join(signals) if signals else "none"
+    
+    signal_text = ", ".join(signals[:5]) if signals else "none"
+
+    reason_lines = "\n".join(f"- {s}" for s in signals[:5]) if signals else "- none"
 
     context_lines = []
     for item in context[-5:]:
